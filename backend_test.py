@@ -193,6 +193,155 @@ class UGGAPITester:
         """Test admin stats endpoint"""
         return self.run_test("Admin Stats", "GET", "admin/stats", 200)
 
+    # NEW FEATURE TESTS
+    def test_dashboard_charts(self):
+        """Test new dashboard charts endpoint for Recharts visualizations"""
+        return self.run_test("Dashboard Charts", "GET", "dashboard/charts", 200)
+
+    def test_dashboard_event_throughput(self):
+        """Test dashboard event throughput endpoint"""
+        return self.run_test("Dashboard Event Throughput", "GET", "dashboard/event-throughput", 200)
+
+    def test_events_list(self):
+        """Test events list endpoint"""
+        return self.run_test("Events List", "GET", "events?limit=50", 200)
+
+    def test_events_types(self):
+        """Test events types endpoint"""
+        return self.run_test("Events Types", "GET", "events/types", 200)
+
+    def test_connector_detail(self, connector_id=None):
+        """Test connector detail endpoint"""
+        if not connector_id:
+            # Get a connector ID first
+            success, response = self.run_test("Get Connector for Detail Test", "GET", "connectors", 200)
+            if success and response.get('connectors'):
+                connector_id = response['connectors'][0]['id']
+            else:
+                print("❌ No connectors found for detail test")
+                return False
+        
+        return self.run_test(f"Connector Detail", "GET", f"connectors/{connector_id}", 200)
+
+    def test_connector_mappings(self, connector_id=None):
+        """Test connector mappings endpoints"""
+        if not connector_id:
+            # Get a connector ID first
+            success, response = self.run_test("Get Connector for Mappings Test", "GET", "connectors", 200)
+            if success and response.get('connectors'):
+                connector_id = response['connectors'][0]['id']
+            else:
+                print("❌ No connectors found for mappings test")
+                return False
+        
+        # Test GET mappings
+        get_success, _ = self.run_test(f"Get Connector Mappings", "GET", f"connectors/{connector_id}/mappings", 200)
+        
+        # Test POST mappings (save)
+        test_mappings = [
+            {
+                "id": "test-mapping-1",
+                "source_field": "device_id",
+                "canonical_field": "device_id",
+                "transform": None,
+                "confidence": 1.0
+            }
+        ]
+        post_success, _ = self.run_test(
+            f"Save Connector Mappings", 
+            "POST", 
+            f"connectors/{connector_id}/mappings", 
+            200,
+            data={"mappings": test_mappings}
+        )
+        
+        return get_success and post_success
+
+    def test_connector_deployments(self, connector_id=None):
+        """Test connector deployment workflow"""
+        if not connector_id:
+            # Get a connector ID first
+            success, response = self.run_test("Get Connector for Deployment Test", "GET", "connectors", 200)
+            if success and response.get('connectors'):
+                connector_id = response['connectors'][0]['id']
+            else:
+                print("❌ No connectors found for deployment test")
+                return False
+        
+        # Test list deployments
+        list_success, _ = self.run_test(f"List Deployments", "GET", f"connectors/{connector_id}/deployments", 200)
+        
+        # Test create deployment
+        deployment_data = {
+            "strategy": "canary",
+            "canary_percent": 5,
+            "target_scope": "all"
+        }
+        create_success, deployment_response = self.run_test(
+            f"Create Deployment", 
+            "POST", 
+            f"connectors/{connector_id}/deploy", 
+            200,
+            data=deployment_data
+        )
+        
+        if not create_success:
+            return False
+            
+        deployment_id = deployment_response.get('id')
+        if not deployment_id:
+            print("❌ No deployment ID returned")
+            return False
+        
+        # Test approve deployment
+        approve_success, _ = self.run_test(
+            f"Approve Deployment", 
+            "POST", 
+            f"connectors/{connector_id}/deployments/{deployment_id}/approve", 
+            200
+        )
+        
+        # Test start deployment
+        start_success, _ = self.run_test(
+            f"Start Deployment", 
+            "POST", 
+            f"connectors/{connector_id}/deployments/{deployment_id}/start", 
+            200
+        )
+        
+        # Test promote deployment
+        promote_success, _ = self.run_test(
+            f"Promote Deployment", 
+            "POST", 
+            f"connectors/{connector_id}/deployments/{deployment_id}/promote", 
+            200
+        )
+        
+        # Test rollback deployment (this will change status to rolled_back)
+        rollback_success, _ = self.run_test(
+            f"Rollback Deployment", 
+            "POST", 
+            f"connectors/{connector_id}/deployments/{deployment_id}/rollback", 
+            200
+        )
+        
+        return list_success and create_success and approve_success and start_success and promote_success and rollback_success
+
+    def test_create_connector(self):
+        """Test creating a new connector"""
+        connector_data = {
+            "name": f"Test Connector {datetime.now().strftime('%H%M%S')}",
+            "type": "rest_poll",
+            "language": "python"
+        }
+        return self.run_test(
+            "Create Connector", 
+            "POST", 
+            "connectors", 
+            200,
+            data=connector_data
+        )
+
 def main():
     print("🚀 Starting UGG Platform API Tests")
     print("=" * 50)
@@ -232,6 +381,17 @@ def main():
     tester.test_emulator_scenarios()
     tester.test_ai_studio_chat()
     tester.test_admin_stats()
+    
+    # Test NEW FEATURES
+    print("\n🆕 Testing New Features...")
+    tester.test_dashboard_charts()
+    tester.test_dashboard_event_throughput()
+    tester.test_events_list()
+    tester.test_events_types()
+    tester.test_create_connector()
+    tester.test_connector_detail()
+    tester.test_connector_mappings()
+    tester.test_connector_deployments()
     
     # Print results
     print("\n" + "=" * 50)

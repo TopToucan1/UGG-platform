@@ -62,7 +62,10 @@ async def startup():
     logger.info("Starting UGG Platform...")
     await seed_admin()
     await seed_all()
-    logger.info("UGG Platform ready")
+    # Start real-time event generator
+    from routes.events import start_event_generator
+    start_event_generator()
+    logger.info("UGG Platform ready — real-time event generator active")
 
 
 @app.on_event("shutdown")
