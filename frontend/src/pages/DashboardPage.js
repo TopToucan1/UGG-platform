@@ -91,7 +91,8 @@ export default function DashboardPage() {
       ws.onmessage = (msg) => {
         try {
           const evt = JSON.parse(msg.data);
-          setEvents(prev => [evt, ...prev].slice(0, 50));
+          evt._wsKey = `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          setEvents(prev => [evt, ...prev.filter(e => e.id !== evt.id)].slice(0, 50));
           setLiveCount(prev => prev + 1);
           // Update summary event count
           setSummary(prev => prev ? { ...prev, events: { ...prev.events, total: (prev.events.total || 0) + 1, throughput: (prev.events.throughput || 0) + 1 } } : prev);
