@@ -13,6 +13,9 @@ import MessageComposerPage from '@/pages/MessageComposerPage';
 import SettingsPage from '@/pages/SettingsPage';
 import FinancialPage from '@/pages/FinancialPage';
 import PlayerSessionsPage from '@/pages/PlayerSessionsPage';
+import MarketplacePage from '@/pages/MarketplacePage';
+import JackpotPage from '@/pages/JackpotPage';
+import ExportPage from '@/pages/ExportPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -48,13 +51,16 @@ function AppRoutes() {
       <Route path="/devices" element={<ProtectedRoute><DevicesPage /></ProtectedRoute>} />
       <Route path="/financial" element={<ProtectedRoute><FinancialPage /></ProtectedRoute>} />
       <Route path="/players" element={<ProtectedRoute><PlayerSessionsPage /></ProtectedRoute>} />
+      <Route path="/jackpots" element={<ProtectedRoute><JackpotPage /></ProtectedRoute>} />
       <Route path="/connectors" element={<ProtectedRoute><ConnectorBuilderPage /></ProtectedRoute>} />
+      <Route path="/marketplace" element={<ProtectedRoute><MarketplacePage /></ProtectedRoute>} />
       <Route path="/ai-studio" element={<ProtectedRoute><AIStudioPage /></ProtectedRoute>} />
       <Route path="/emulator" element={<ProtectedRoute><EmulatorLabPage /></ProtectedRoute>} />
       <Route path="/audit" element={<ProtectedRoute><AuditExplorerPage /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><AlertConsolePage /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><MessageComposerPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

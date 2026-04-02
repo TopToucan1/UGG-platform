@@ -1,5 +1,6 @@
 import Sidebar from './Sidebar';
 import Header from './Header';
+import VipAlertOverlay from '@/components/VipAlertOverlay';
 
 export default function AppShell({ children }) {
   return (
@@ -11,6 +12,7 @@ export default function AppShell({ children }) {
           {children}
         </main>
       </div>
+      <VipAlertOverlay />
     </div>
   );
 }

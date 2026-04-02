@@ -399,6 +399,131 @@ class UGGAPITester:
         """Test active sessions endpoint"""
         return self.run_test("Active Sessions", "GET", "players/active", 200)
 
+    # NEW 4 FEATURES TESTS - MARKETPLACE, JACKPOTS, EXPORT, VIP ALERTS
+    def test_marketplace_list(self):
+        """Test marketplace connectors list endpoint"""
+        return self.run_test("Marketplace List", "GET", "marketplace", 200)
+
+    def test_marketplace_categories(self):
+        """Test marketplace categories endpoint"""
+        return self.run_test("Marketplace Categories", "GET", "marketplace/categories", 200)
+
+    def test_marketplace_stats(self):
+        """Test marketplace stats endpoint"""
+        return self.run_test("Marketplace Stats", "GET", "marketplace/stats/summary", 200)
+
+    def test_marketplace_with_filters(self):
+        """Test marketplace with various filters"""
+        success1, _ = self.run_test("Marketplace - Category Filter", "GET", "marketplace?category=Gaming", 200)
+        success2, _ = self.run_test("Marketplace - Search Filter", "GET", "marketplace?search=connector", 200)
+        success3, _ = self.run_test("Marketplace - Price Filter", "GET", "marketplace?price_model=free", 200)
+        return success1 and success2 and success3
+
+    def test_marketplace_connector_detail(self):
+        """Test marketplace connector detail endpoint"""
+        # Get a connector ID first
+        success, response = self.run_test("Get Marketplace Connector for Detail Test", "GET", "marketplace?limit=1", 200)
+        if success and response.get('connectors'):
+            connector_id = response['connectors'][0]['id']
+            return self.run_test(f"Marketplace Connector Detail", "GET", f"marketplace/{connector_id}", 200)
+        else:
+            print("❌ No marketplace connectors found for detail test")
+            return False
+
+    def test_marketplace_install(self):
+        """Test marketplace connector install endpoint"""
+        # Get a connector ID first
+        success, response = self.run_test("Get Marketplace Connector for Install Test", "GET", "marketplace?limit=1", 200)
+        if success and response.get('connectors'):
+            connector_id = response['connectors'][0]['id']
+            return self.run_test(f"Install Marketplace Connector", "POST", f"marketplace/{connector_id}/install", 200)
+        else:
+            print("❌ No marketplace connectors found for install test")
+            return False
+
+    def test_jackpots_list(self):
+        """Test progressive jackpots list endpoint"""
+        return self.run_test("Jackpots List", "GET", "jackpots", 200)
+
+    def test_jackpots_summary(self):
+        """Test jackpots summary endpoint"""
+        return self.run_test("Jackpots Summary", "GET", "jackpots/summary", 200)
+
+    def test_jackpots_charts(self):
+        """Test jackpots charts endpoint"""
+        return self.run_test("Jackpots Charts", "GET", "jackpots/charts", 200)
+
+    def test_jackpots_history(self):
+        """Test jackpots history endpoint"""
+        return self.run_test("Jackpots History", "GET", "jackpots/history", 200)
+
+    def test_jackpots_with_filters(self):
+        """Test jackpots with various filters"""
+        success1, _ = self.run_test("Jackpots - Status Filter", "GET", "jackpots?status=active", 200)
+        success2, _ = self.run_test("Jackpots - Type Filter", "GET", "jackpots?jp_type=standalone", 200)
+        return success1 and success2
+
+    def test_jackpot_detail(self):
+        """Test jackpot detail endpoint"""
+        # Get a jackpot ID first
+        success, response = self.run_test("Get Jackpot for Detail Test", "GET", "jackpots?limit=1", 200)
+        if success and response.get('jackpots'):
+            jackpot_id = response['jackpots'][0]['id']
+            return self.run_test(f"Jackpot Detail", "GET", f"jackpots/{jackpot_id}", 200)
+        else:
+            print("❌ No jackpots found for detail test")
+            return False
+
+    def test_export_financial_csv(self):
+        """Test export financial CSV endpoint"""
+        success, response = self.run_test("Export Financial CSV", "GET", "export/financial/csv", 200)
+        if success:
+            print("   ✅ CSV export successful")
+        return success
+
+    def test_export_players_csv(self):
+        """Test export players CSV endpoint"""
+        success, response = self.run_test("Export Players CSV", "GET", "export/players/csv", 200)
+        if success:
+            print("   ✅ CSV export successful")
+        return success
+
+    def test_export_devices_csv(self):
+        """Test export devices CSV endpoint"""
+        success, response = self.run_test("Export Devices CSV", "GET", "export/devices/csv", 200)
+        if success:
+            print("   ✅ CSV export successful")
+        return success
+
+    def test_export_events_csv(self):
+        """Test export events CSV endpoint"""
+        success, response = self.run_test("Export Events CSV", "GET", "export/events/csv", 200)
+        if success:
+            print("   ✅ CSV export successful")
+        return success
+
+    def test_export_audit_csv(self):
+        """Test export audit CSV endpoint"""
+        success, response = self.run_test("Export Audit CSV", "GET", "export/audit/csv", 200)
+        if success:
+            print("   ✅ CSV export successful")
+        return success
+
+    def test_export_jackpots_csv(self):
+        """Test export jackpots CSV endpoint"""
+        success, response = self.run_test("Export Jackpots CSV", "GET", "export/jackpots/csv", 200)
+        if success:
+            print("   ✅ CSV export successful")
+        return success
+
+    def test_vip_alerts_list(self):
+        """Test VIP alerts list endpoint"""
+        return self.run_test("VIP Alerts List", "GET", "events/vip-alerts", 200)
+
+    def test_events_types_endpoint(self):
+        """Test events types endpoint (for VIP alerts)"""
+        return self.run_test("Events Types", "GET", "events/types", 200)
+
 def main():
     print("🚀 Starting UGG Platform API Tests")
     print("=" * 50)
@@ -466,6 +591,35 @@ def main():
     tester.test_player_summary()
     tester.test_player_charts()
     tester.test_active_sessions()
+    
+    # Test NEW 4 FEATURES - MARKETPLACE, JACKPOTS, EXPORT, VIP ALERTS
+    print("\n🛒 Testing Marketplace Features...")
+    tester.test_marketplace_list()
+    tester.test_marketplace_categories()
+    tester.test_marketplace_stats()
+    tester.test_marketplace_with_filters()
+    tester.test_marketplace_connector_detail()
+    tester.test_marketplace_install()
+    
+    print("\n🏆 Testing Progressive Jackpots Features...")
+    tester.test_jackpots_list()
+    tester.test_jackpots_summary()
+    tester.test_jackpots_charts()
+    tester.test_jackpots_history()
+    tester.test_jackpots_with_filters()
+    tester.test_jackpot_detail()
+    
+    print("\n📊 Testing Export/Reports Features...")
+    tester.test_export_financial_csv()
+    tester.test_export_players_csv()
+    tester.test_export_devices_csv()
+    tester.test_export_events_csv()
+    tester.test_export_audit_csv()
+    tester.test_export_jackpots_csv()
+    
+    print("\n👑 Testing VIP Alerts Features...")
+    tester.test_vip_alerts_list()
+    tester.test_events_types_endpoint()
     
     # Print results
     print("\n" + "=" * 50)

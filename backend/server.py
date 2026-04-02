@@ -25,6 +25,9 @@ from routes.messages import router as messages_router
 from routes.admin import router as admin_router
 from routes.financial import router as financial_router
 from routes.players import router as players_router
+from routes.marketplace import router as marketplace_router
+from routes.jackpots import router as jackpots_router
+from routes.export import router as export_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -55,6 +58,9 @@ app.include_router(messages_router)
 app.include_router(admin_router)
 app.include_router(financial_router)
 app.include_router(players_router)
+app.include_router(marketplace_router)
+app.include_router(jackpots_router)
+app.include_router(export_router)
 
 
 @app.get("/api")
@@ -68,6 +74,8 @@ async def startup():
     await seed_admin()
     await seed_all()
     await seed_financial_and_players()
+    from seed_marketplace import seed_marketplace_and_jackpots
+    await seed_marketplace_and_jackpots()
     # Start real-time event generator
     from routes.events import start_event_generator
     start_event_generator()

@@ -78,6 +78,37 @@ async def event_generator():
             await db.events.insert_one({**event})
             event.pop("_id", None)
             await manager.broadcast(event, "events")
+
+            # Occasionally generate VIP player alerts (Platinum/Diamond card-in)
+            if random.random() < 0.08:
+                vip_tiers = ["Platinum", "Diamond"]
+                vip_names = ["Sarah R.", "James T.", "Maria H.", "David S.", "Wei L.", "Olga K.", "Carlos G.", "Yuki F."]
+                tier = random.choice(vip_tiers)
+                player_name = random.choice(vip_names)
+                player_id = f"PL-{random.randint(20000, 20049)}"
+                lifetime_value = round(random.uniform(25000, 500000), 2)
+                preferred_games = random.sample(["Buffalo Gold", "Lightning Link", "Dragon Link", "88 Fortunes", "Quick Hit", "Wheel of Fortune"], 3)
+                vip_alert = {
+                    "id": str(uuid.uuid4()),
+                    "type": "vip_player_alert",
+                    "player_id": player_id,
+                    "player_name": player_name,
+                    "player_tier": tier,
+                    "device_id": device["id"],
+                    "device_ref": device.get("external_ref", ""),
+                    "site_id": device.get("site_id"),
+                    "lifetime_value": lifetime_value,
+                    "preferred_games": preferred_games,
+                    "total_visits": random.randint(50, 800),
+                    "avg_session_minutes": random.randint(45, 240),
+                    "action": "card_in",
+                    "occurred_at": now,
+                    "message": f"{tier} member {player_name} just carded in at {device.get('external_ref', '')}",
+                }
+                await db.vip_alerts.insert_one({**vip_alert})
+                vip_alert.pop("_id", None)
+                await manager.broadcast(vip_alert, "vip_alerts")
+                await manager.broadcast(vip_alert, "events")
         except Exception:
             await asyncio.sleep(5)
 
@@ -126,3 +157,21 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, "events")
+
+
+@router.websocket("/ws/vip")
+async def vip_websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket, "vip_alerts")
+    start_event_generator()
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, "vip_alerts")
+
+
+@router.get("/vip-alerts")
+async def list_vip_alerts(request: Request, limit: int = 30):
+    await get_current_user(request)
+    alerts = await db.vip_alerts.find({}, {"_id": 0}).sort("occurred_at", -1).limit(limit).to_list(limit)
+    return {"alerts": alerts, "total": await db.vip_alerts.count_documents({})}
