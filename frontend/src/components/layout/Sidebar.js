@@ -2,13 +2,15 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChartBar, Desktop, Plugs, Robot, Flask,
   ListMagnifyingGlass, Bell, ChatCircleDots, GearSix,
-  Cpu, CaretLeft, CaretRight
+  Cpu, CaretLeft, CaretRight, CurrencyDollar, Users
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: ChartBar },
   { path: '/devices', label: 'Devices', icon: Desktop },
+  { path: '/financial', label: 'Financial', icon: CurrencyDollar },
+  { path: '/players', label: 'Player Sessions', icon: Users },
   { path: '/connectors', label: 'Connectors', icon: Plugs },
   { path: '/ai-studio', label: 'AI Studio', icon: Robot },
   { path: '/emulator', label: 'Emulator Lab', icon: Flask },

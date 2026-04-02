@@ -342,6 +342,63 @@ class UGGAPITester:
             data=connector_data
         )
 
+    # FINANCIAL DASHBOARD TESTS
+    def test_financial_events(self):
+        """Test financial events list endpoint"""
+        return self.run_test("Financial Events List", "GET", "financial?limit=50", 200)
+
+    def test_financial_events_with_filters(self):
+        """Test financial events with filters"""
+        success1, _ = self.run_test("Financial Events - Type Filter", "GET", "financial?event_type=wager&limit=10", 200)
+        success2, _ = self.run_test("Financial Events - Amount Filter", "GET", "financial?min_amount=100&limit=10", 200)
+        return success1 and success2
+
+    def test_financial_summary(self):
+        """Test financial summary endpoint"""
+        return self.run_test("Financial Summary", "GET", "financial/summary", 200)
+
+    def test_financial_charts(self):
+        """Test financial charts endpoint"""
+        return self.run_test("Financial Charts", "GET", "financial/charts", 200)
+
+    def test_financial_types(self):
+        """Test financial types endpoint"""
+        return self.run_test("Financial Types", "GET", "financial/types", 200)
+
+    # PLAYER SESSIONS TESTS
+    def test_player_sessions(self):
+        """Test player sessions list endpoint"""
+        return self.run_test("Player Sessions List", "GET", "players/sessions?limit=50", 200)
+
+    def test_player_sessions_with_filters(self):
+        """Test player sessions with filters"""
+        success1, _ = self.run_test("Player Sessions - Status Filter", "GET", "players/sessions?status=active&limit=10", 200)
+        success2, _ = self.run_test("Player Sessions - Player Filter", "GET", "players/sessions?player_id=test&limit=10", 200)
+        return success1 and success2
+
+    def test_player_session_detail(self):
+        """Test player session detail endpoint"""
+        # Get a session ID first
+        success, response = self.run_test("Get Session for Detail Test", "GET", "players/sessions?limit=1", 200)
+        if success and response.get('sessions'):
+            session_id = response['sessions'][0]['id']
+            return self.run_test(f"Player Session Detail", "GET", f"players/sessions/{session_id}", 200)
+        else:
+            print("❌ No sessions found for detail test")
+            return False
+
+    def test_player_summary(self):
+        """Test player summary endpoint"""
+        return self.run_test("Player Summary", "GET", "players/summary", 200)
+
+    def test_player_charts(self):
+        """Test player charts endpoint"""
+        return self.run_test("Player Charts", "GET", "players/charts", 200)
+
+    def test_active_sessions(self):
+        """Test active sessions endpoint"""
+        return self.run_test("Active Sessions", "GET", "players/active", 200)
+
 def main():
     print("🚀 Starting UGG Platform API Tests")
     print("=" * 50)
@@ -392,6 +449,23 @@ def main():
     tester.test_connector_detail()
     tester.test_connector_mappings()
     tester.test_connector_deployments()
+    
+    # Test FINANCIAL DASHBOARD FEATURES
+    print("\n💰 Testing Financial Dashboard Features...")
+    tester.test_financial_events()
+    tester.test_financial_events_with_filters()
+    tester.test_financial_summary()
+    tester.test_financial_charts()
+    tester.test_financial_types()
+    
+    # Test PLAYER SESSIONS FEATURES
+    print("\n👥 Testing Player Sessions Features...")
+    tester.test_player_sessions()
+    tester.test_player_sessions_with_filters()
+    tester.test_player_session_detail()
+    tester.test_player_summary()
+    tester.test_player_charts()
+    tester.test_active_sessions()
     
     # Print results
     print("\n" + "=" * 50)

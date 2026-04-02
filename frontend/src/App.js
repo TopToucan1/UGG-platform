@@ -11,6 +11,8 @@ import AuditExplorerPage from '@/pages/AuditExplorerPage';
 import AlertConsolePage from '@/pages/AlertConsolePage';
 import MessageComposerPage from '@/pages/MessageComposerPage';
 import SettingsPage from '@/pages/SettingsPage';
+import FinancialPage from '@/pages/FinancialPage';
+import PlayerSessionsPage from '@/pages/PlayerSessionsPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -44,6 +46,8 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/devices" element={<ProtectedRoute><DevicesPage /></ProtectedRoute>} />
+      <Route path="/financial" element={<ProtectedRoute><FinancialPage /></ProtectedRoute>} />
+      <Route path="/players" element={<ProtectedRoute><PlayerSessionsPage /></ProtectedRoute>} />
       <Route path="/connectors" element={<ProtectedRoute><ConnectorBuilderPage /></ProtectedRoute>} />
       <Route path="/ai-studio" element={<ProtectedRoute><AIStudioPage /></ProtectedRoute>} />
       <Route path="/emulator" element={<ProtectedRoute><EmulatorLabPage /></ProtectedRoute>} />

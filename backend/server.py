@@ -11,6 +11,7 @@ import logging
 
 from auth import router as auth_router, seed_admin
 from seed_data import seed_all
+from seed_financial import seed_financial_and_players
 from routes.dashboard import router as dashboard_router
 from routes.devices import router as devices_router
 from routes.events import router as events_router
@@ -22,6 +23,8 @@ from routes.emulator import router as emulator_router
 from routes.ai_studio import router as ai_studio_router
 from routes.messages import router as messages_router
 from routes.admin import router as admin_router
+from routes.financial import router as financial_router
+from routes.players import router as players_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -50,6 +53,8 @@ app.include_router(emulator_router)
 app.include_router(ai_studio_router)
 app.include_router(messages_router)
 app.include_router(admin_router)
+app.include_router(financial_router)
+app.include_router(players_router)
 
 
 @app.get("/api")
@@ -62,6 +67,7 @@ async def startup():
     logger.info("Starting UGG Platform...")
     await seed_admin()
     await seed_all()
+    await seed_financial_and_players()
     # Start real-time event generator
     from routes.events import start_event_generator
     start_event_generator()
