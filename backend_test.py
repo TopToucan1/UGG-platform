@@ -524,6 +524,27 @@ class UGGAPITester:
         """Test events types endpoint (for VIP alerts)"""
         return self.run_test("Events Types", "GET", "events/types", 200)
 
+    # COMMAND CENTER SPECIFIC TESTS
+    def test_command_center_device_health(self):
+        """Test device health with Command Center specific limit (85 devices)"""
+        return self.run_test("Command Center Device Health", "GET", "dashboard/device-health?limit=85", 200)
+
+    def test_command_center_recent_events(self):
+        """Test recent events with Command Center specific limit (25 events)"""
+        return self.run_test("Command Center Recent Events", "GET", "dashboard/recent-events?limit=25", 200)
+
+    def test_command_center_recent_alerts(self):
+        """Test recent alerts with Command Center specific limit (20 alerts)"""
+        return self.run_test("Command Center Recent Alerts", "GET", "dashboard/recent-alerts?limit=20", 200)
+
+    def test_command_center_vip_alerts(self):
+        """Test VIP alerts with Command Center specific limit (10 alerts)"""
+        return self.run_test("Command Center VIP Alerts", "GET", "events/vip-alerts?limit=10", 200)
+
+    def test_command_center_active_jackpots(self):
+        """Test active jackpots for Command Center"""
+        return self.run_test("Command Center Active Jackpots", "GET", "jackpots?status=active", 200)
+
 def main():
     print("🚀 Starting UGG Platform API Tests")
     print("=" * 50)
@@ -620,6 +641,14 @@ def main():
     print("\n👑 Testing VIP Alerts Features...")
     tester.test_vip_alerts_list()
     tester.test_events_types_endpoint()
+    
+    # Test COMMAND CENTER SPECIFIC FEATURES
+    print("\n🖥️ Testing Command Center Specific Features...")
+    tester.test_command_center_device_health()
+    tester.test_command_center_recent_events()
+    tester.test_command_center_recent_alerts()
+    tester.test_command_center_vip_alerts()
+    tester.test_command_center_active_jackpots()
     
     # Print results
     print("\n" + "=" * 50)

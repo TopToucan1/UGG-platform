@@ -16,6 +16,7 @@ import PlayerSessionsPage from '@/pages/PlayerSessionsPage';
 import MarketplacePage from '@/pages/MarketplacePage';
 import JackpotPage from '@/pages/JackpotPage';
 import ExportPage from '@/pages/ExportPage';
+import CommandCenterPage from '@/pages/CommandCenterPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -31,6 +32,13 @@ function ProtectedRoute({ children }) {
   }
   if (!user) return <Navigate to="/login" replace />;
   return <AppShell>{children}</AppShell>;
+}
+
+function FullscreenRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0C10' }}><div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#00D4AA', borderTopColor: 'transparent' }} /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
 }
 
 function AppRoutes() {
@@ -61,6 +69,7 @@ function AppRoutes() {
       <Route path="/messages" element={<ProtectedRoute><MessageComposerPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
+      <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
