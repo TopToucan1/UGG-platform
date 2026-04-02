@@ -1,0 +1,82 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) - Technical Dashboard Variant",
+  "colors": {
+    "background": "#0A0C10",
+    "surface": "#12151C",
+    "surfaceElevated": "#1A1E2A",
+    "border": "#272E3B",
+    "accent": "#00D4AA",
+    "text": {
+      "primary": "#E8ECF1",
+      "secondary": "#A3AEBE",
+      "tertiary": "#6B7A90"
+    },
+    "status": {
+      "online": "#00D4AA",
+      "warning": "#F5A623",
+      "error": "#FF3B30",
+      "info": "#007AFF"
+    }
+  },
+  "typography": {
+    "headingFont": "Chivo",
+    "bodyFont": "IBM Plex Sans",
+    "monoFont": "JetBrains Mono",
+    "scale": {
+      "h1": "text-2xl font-bold tracking-tight",
+      "h2": "text-xl font-semibold tracking-tight",
+      "h3": "text-base font-semibold",
+      "body": "text-sm",
+      "small": "text-xs",
+      "micro": "text-[11px] uppercase tracking-[0.2em]"
+    }
+  },
+  "layout": {
+    "leftNavWidth": "240px",
+    "rightDrawerWidth": "480px",
+    "grid": "grid-cols-12 gap-4",
+    "spacing": "Dense, Control Room style (p-4 to p-6 padding inside containers)",
+    "surfaceStrategy": "Grid Borders (The 'Technical' Look): Exposed skeleton, 1px borders (border-border), max 4px border-radius. No glassmorphism in data views."
+  },
+  "components": {
+    "buttons": "Flat, sharp edges. Primary uses #00D4AA (Teal-Green) background with #0A0C10 text. Secondary uses #1A1E2A background with 1px border.",
+    "cards": "Cardless or dense flat rectangular cards with 1px border (#272E3B). No shadows. Hover effect: Border color brightens, subtle translation (-translate-y-[1px]).",
+    "tables": "Dense. Header rows use 11px uppercase tracking-wide text (#6B7A90). Rows have 1px bottom border. Use JetBrains Mono for IDs and metrics.",
+    "drawer": "Right-side drawer (480px width), background #12151C, with 1px left border. Uses Shadcn Tabs for overview/events/commands/audit.",
+    "alertTicker": "Running marquee (react-fast-marquee) at top or bottom for live alerts. Use JetBrains Mono for alert text.",
+    "charts": "Recharts with transparent backgrounds, using Accent (#00D4AA) and Status colors for data lines.",
+    "connectorBuilder": "Three-pane workspace. Middle pane is mapping canvas (use dot grid background `bg-[url('...')]` or SVG pattern).",
+    "aiStudio": "Implement 'The Tracing Beam' edge animation (framer-motion) around the AI input prompt area.",
+    "sixLayerVisualization": "Use a vertical stack of styled div containers with connecting lines (using borders or SVG) to represent the 6 layers of architecture."
+  },
+  "motion": {
+    "hover": "Fast, precise (transition: all 0.15s ease). Text color MUST brighten on hover.",
+    "transitions": "Use 'Tracing Beam' for active states or AI processing."
+  },
+  "accessibility": {
+    "contrast": "Ensure text contrast on #00D4AA is dark (#0A0C10) for readability.",
+    "testIds": "All interactive elements MUST have data-testid attributes (kebab-case, role-based). Example: data-testid='device-row-click'."
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "style": "Regular or Light weight, matching text size."
+  },
+  "media": {
+    "abstract_background": {
+      "url": "https://images.pexels.com/photos/13156181/pexels-photo-13156181.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Dark abstract close-up of illuminated geometric metallic shapes forming a pattern.",
+      "usage": "Use as a very low-opacity (5-10%) background texture for the login screen or empty state backgrounds."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Do not use generic Inter font for headings; configure Chivo and IBM Plex Sans in Tailwind.",
+    "Strictly adhere to the provided color hex codes. Set the Tailwind config to use these exact values instead of default slate/zinc.",
+    "Implement the 12-column bento grid for the Estate Dashboard, using 'col-span-3', 'col-span-6', etc.",
+    "For the Device Management page, implement a data table on the left (spanning remaining columns) and the 480px Detail Drawer on the right upon row click.",
+    "Use pure HTML/Tailwind for structural layout (sidebar, header, main content area) and heavily customized Shadcn components for complex interactions (Tabs, Dropdowns, Dialogs).",
+    "Make sure the right detail drawer has Tabs (Overview, Events, Commands, Connector, Audit).",
+    "Data-heavy widgets must use JetBrains Mono for numbers, IDs, and event logs.",
+    "Run: yarn add @phosphor-icons/react react-fast-marquee framer-motion recharts clsx tailwind-merge"
+  ]
+}
