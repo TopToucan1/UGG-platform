@@ -116,7 +116,7 @@ export default function VipAlertOverlay() {
       <button
         data-testid="vip-panel-toggle"
         onClick={() => setShowPanel(!showPanel)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all hover:scale-105"
+        className="fixed bottom-6 left-64 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all hover:scale-105"
         style={{ background: 'linear-gradient(135deg, #B9F2FF20, #FFD70020)', border: '1px solid #FFD70040', color: '#FFD700' }}
       >
         <Crown size={18} weight="fill" />
@@ -135,7 +135,7 @@ export default function VipAlertOverlay() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-20 right-6 z-40 w-96 max-h-[70vh] rounded-lg border shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-20 left-64 z-40 w-96 max-h-[70vh] rounded-lg border shadow-2xl flex flex-col overflow-hidden"
             style={{ background: '#12151C', borderColor: '#FFD70030' }}
             data-testid="vip-history-panel"
           >
