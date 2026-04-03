@@ -65,7 +65,7 @@ class UGGAPITester:
         """Test root API endpoint"""
         return self.run_test("Root API", "GET", "", 200)
 
-    def test_login(self, email="admin@ugg.io", password="admin123"):
+    def test_login(self, email="admin@ugg.io", password="SASG2S2026"):
         """Test login and establish session"""
         success, response = self.run_test(
             "Login",
@@ -545,6 +545,184 @@ class UGGAPITester:
         """Test active jackpots for Command Center"""
         return self.run_test("Command Center Active Jackpots", "GET", "jackpots?status=active", 200)
 
+    # CONTENT LAB FEATURES TESTS
+    def test_swf_analyzer_analyze(self):
+        """Test SWF analyzer file upload and analysis"""
+        import os
+        test_file_path = "/tmp/file1.crdownload"
+        
+        if not os.path.exists(test_file_path):
+            print(f"❌ Test file not found: {test_file_path}")
+            return False
+            
+        url = f"{self.base_url}/api/swf-analyzer/analyze"
+        print(f"\n🔍 Testing SWF Analyzer File Upload...")
+        print(f"   URL: {url}")
+        
+        try:
+            with open(test_file_path, 'rb') as f:
+                files = {'file': ('file1.crdownload', f, 'application/octet-stream')}
+                response = self.session.post(url, files=files)
+            
+            self.tests_run += 1
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                try:
+                    result = response.json()
+                    print(f"   Analysis ID: {result.get('id', 'N/A')}")
+                    print(f"   Identifiers found: {result.get('identifiers_count', 0)}")
+                    print(f"   Categories: {', '.join(result.get('categories', []))}")
+                    return True, result
+                except:
+                    return True, {}
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"   Response: {response.text[:200]}...")
+                self.failed_tests.append({
+                    'name': 'SWF Analyzer File Upload',
+                    'endpoint': 'swf-analyzer/analyze',
+                    'expected': 200,
+                    'actual': response.status_code,
+                    'response': response.text[:200]
+                })
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.failed_tests.append({
+                'name': 'SWF Analyzer File Upload',
+                'endpoint': 'swf-analyzer/analyze',
+                'error': str(e)
+            })
+            return False, {}
+
+    def test_swf_analyzer_analyses_list(self):
+        """Test SWF analyzer analyses list"""
+        return self.run_test("SWF Analyzer Analyses List", "GET", "swf-analyzer/analyses?limit=20", 200)
+
+    def test_swf_analyzer_hex_dump(self):
+        """Test SWF analyzer hex dump"""
+        import os
+        test_file_path = "/tmp/file1.crdownload"
+        
+        if not os.path.exists(test_file_path):
+            print(f"❌ Test file not found: {test_file_path}")
+            return False
+            
+        url = f"{self.base_url}/api/swf-analyzer/hex-dump?offset=0&length=512"
+        print(f"\n🔍 Testing SWF Analyzer Hex Dump...")
+        print(f"   URL: {url}")
+        
+        try:
+            with open(test_file_path, 'rb') as f:
+                files = {'file': ('file1.crdownload', f, 'application/octet-stream')}
+                response = self.session.post(url, files=files)
+            
+            self.tests_run += 1
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                try:
+                    result = response.json()
+                    print(f"   Total size: {result.get('total_size', 0)} bytes")
+                    print(f"   Hex dump rows: {len(result.get('hex_dump', []))}")
+                    return True, result
+                except:
+                    return True, {}
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"   Response: {response.text[:200]}...")
+                self.failed_tests.append({
+                    'name': 'SWF Analyzer Hex Dump',
+                    'endpoint': 'swf-analyzer/hex-dump',
+                    'expected': 200,
+                    'actual': response.status_code,
+                    'response': response.text[:200]
+                })
+                return False, {}
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.failed_tests.append({
+                'name': 'SWF Analyzer Hex Dump',
+                'endpoint': 'swf-analyzer/hex-dump',
+                'error': str(e)
+            })
+            return False, {}
+
+    def test_content_registry_register(self):
+        """Test content registry registration"""
+        content_data = {
+            "name": f"Test Content {datetime.now().strftime('%H%M%S')}",
+            "content_type": "swf",
+            "version": "1.0.0",
+            "game_title": "Test Game",
+            "manufacturer": "Test Manufacturer",
+            "file_size": 29235,
+            "checksum": "test-checksum",
+            "swf_version": 5,
+            "target_devices": ["device1", "device2"],
+            "deployed_device_count": 0
+        }
+        success, response = self.run_test(
+            "Content Registry Register", 
+            "POST", 
+            "content-registry/register", 
+            200,
+            data=content_data
+        )
+        if success:
+            print(f"   Registered content ID: {response.get('id', 'N/A')}")
+        return success
+
+    def test_content_registry_list(self):
+        """Test content registry list"""
+        return self.run_test("Content Registry List", "GET", "content-registry?limit=50", 200)
+
+    def test_content_registry_list_with_filters(self):
+        """Test content registry list with filters"""
+        success1, _ = self.run_test("Content Registry - Type Filter", "GET", "content-registry?content_type=swf", 200)
+        success2, _ = self.run_test("Content Registry - Search Filter", "GET", "content-registry?search=test", 200)
+        return success1 and success2
+
+    def test_content_registry_stats(self):
+        """Test content registry stats"""
+        return self.run_test("Content Registry Stats", "GET", "content-registry/stats", 200)
+
+    def test_content_registry_detail(self):
+        """Test content registry detail endpoint"""
+        # Get a content ID first
+        success, response = self.run_test("Get Content for Detail Test", "GET", "content-registry?limit=1", 200)
+        if success and response.get('content'):
+            content_id = response['content'][0]['id']
+            return self.run_test(f"Content Registry Detail", "GET", f"content-registry/{content_id}", 200)
+        else:
+            print("❌ No content found for detail test")
+            return False
+
+    def test_content_registry_deploy(self):
+        """Test content registry deployment"""
+        # Get a content ID first
+        success, response = self.run_test("Get Content for Deploy Test", "GET", "content-registry?limit=1", 200)
+        if success and response.get('content'):
+            content_id = response['content'][0]['id']
+            deploy_data = {
+                "target_devices": ["device1", "device2", "device3"]
+            }
+            return self.run_test(
+                f"Content Registry Deploy", 
+                "POST", 
+                f"content-registry/{content_id}/deploy", 
+                200,
+                data=deploy_data
+            )
+        else:
+            print("❌ No content found for deploy test")
+            return False
+
 def main():
     print("🚀 Starting UGG Platform API Tests")
     print("=" * 50)
@@ -649,6 +827,18 @@ def main():
     tester.test_command_center_recent_alerts()
     tester.test_command_center_vip_alerts()
     tester.test_command_center_active_jackpots()
+    
+    # Test CONTENT LAB FEATURES
+    print("\n🧪 Testing Content Lab Features...")
+    tester.test_swf_analyzer_analyze()
+    tester.test_swf_analyzer_analyses_list()
+    tester.test_swf_analyzer_hex_dump()
+    tester.test_content_registry_register()
+    tester.test_content_registry_list()
+    tester.test_content_registry_list_with_filters()
+    tester.test_content_registry_stats()
+    tester.test_content_registry_detail()
+    tester.test_content_registry_deploy()
     
     # Print results
     print("\n" + "=" * 50)

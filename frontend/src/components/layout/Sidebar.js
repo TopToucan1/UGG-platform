@@ -3,7 +3,7 @@ import {
   ChartBar, Desktop, Plugs, Robot, Flask,
   ListMagnifyingGlass, Bell, ChatCircleDots, GearSix,
   Cpu, CaretLeft, CaretRight, CurrencyDollar, Users,
-  Storefront, Trophy, FileArrowDown, Monitor
+  Storefront, Trophy, FileArrowDown, Monitor, Cube
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
@@ -16,6 +16,7 @@ const navItems = [
   { path: '/jackpots', label: 'Jackpots', icon: Trophy },
   { path: '/connectors', label: 'Connectors', icon: Plugs },
   { path: '/marketplace', label: 'Marketplace', icon: Storefront },
+  { path: '/content-lab', label: 'Content Lab', icon: Cube },
   { path: '/ai-studio', label: 'AI Studio', icon: Robot },
   { path: '/emulator', label: 'Emulator Lab', icon: Flask },
   { path: '/audit', label: 'Audit Explorer', icon: ListMagnifyingGlass },

@@ -28,6 +28,8 @@ from routes.players import router as players_router
 from routes.marketplace import router as marketplace_router
 from routes.jackpots import router as jackpots_router
 from routes.export import router as export_router
+from routes.swf_analyzer import router as swf_analyzer_router
+from routes.content_registry import router as content_registry_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -61,6 +63,8 @@ app.include_router(players_router)
 app.include_router(marketplace_router)
 app.include_router(jackpots_router)
 app.include_router(export_router)
+app.include_router(swf_analyzer_router)
+app.include_router(content_registry_router)
 
 
 @app.get("/api")

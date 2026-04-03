@@ -17,6 +17,7 @@ import MarketplacePage from '@/pages/MarketplacePage';
 import JackpotPage from '@/pages/JackpotPage';
 import ExportPage from '@/pages/ExportPage';
 import CommandCenterPage from '@/pages/CommandCenterPage';
+import ContentLabPage from '@/pages/ContentLabPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -69,6 +70,7 @@ function AppRoutes() {
       <Route path="/messages" element={<ProtectedRoute><MessageComposerPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
+      <Route path="/content-lab" element={<ProtectedRoute><ContentLabPage /></ProtectedRoute>} />
       <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
