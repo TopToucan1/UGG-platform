@@ -3,16 +3,18 @@ import {
   ChartBar, Desktop, Plugs, Robot, Flask,
   ListMagnifyingGlass, Bell, ChatCircleDots, GearSix,
   Cpu, CaretLeft, CaretRight, CurrencyDollar, Users,
-  Storefront, Trophy, FileArrowDown, Monitor, Cube, MapPin, Scales
+  Storefront, Trophy, FileArrowDown, Monitor, Cube, MapPin, Scales,
+  NavigationArrow, ShieldCheck
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: ChartBar },
+  { path: '/', label: 'Mission Control', icon: ChartBar },
   { path: '/command-center', label: 'Command Center', icon: Monitor },
+  { path: '/devices', label: 'Device Fleet', icon: Desktop },
+  { path: '/map', label: 'Route Map', icon: NavigationArrow },
   { path: '/route-ops', label: 'Route Operations', icon: MapPin },
   { path: '/regulatory', label: 'Regulatory', icon: Scales },
-  { path: '/devices', label: 'Devices', icon: Desktop },
   { path: '/financial', label: 'Financial', icon: CurrencyDollar },
   { path: '/players', label: 'Player Sessions', icon: Users },
   { path: '/jackpots', label: 'Jackpots', icon: Trophy },
@@ -21,8 +23,9 @@ const navItems = [
   { path: '/content-lab', label: 'Content Lab', icon: Cube },
   { path: '/ai-studio', label: 'AI Studio', icon: Robot },
   { path: '/emulator', label: 'Emulator Lab', icon: Flask },
+  { path: '/certification', label: 'Certification', icon: ShieldCheck },
   { path: '/audit', label: 'Audit Explorer', icon: ListMagnifyingGlass },
-  { path: '/alerts', label: 'Alert Console', icon: Bell },
+  { path: '/alerts', label: 'Exceptions', icon: Bell },
   { path: '/messages', label: 'Messages', icon: ChatCircleDots },
   { path: '/export', label: 'Export', icon: FileArrowDown },
   { path: '/settings', label: 'Settings', icon: GearSix },
