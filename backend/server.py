@@ -37,9 +37,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="UGG - Universal Gaming Gateway", version="1.0.0")
 
 # CORS
+cors_origins = os.environ.get('CORS_ORIGINS', '*')
+if cors_origins == '*':
+    origins_list = ["*"]
+else:
+    origins_list = [o.strip() for o in cors_origins.split(',') if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://nervous-mclean-4.preview.emergentagent.com", "http://localhost:3000"],
+    allow_origins=origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
