@@ -54,25 +54,25 @@ async def enrich_events_batch(request: Request):
     """Batch-enrich existing events with statutory fields from device/site registry."""
     user = await get_current_user(request)
     body = await request.json()
-    limit = body.get("limit", 500)
+    limit = body.get("limit", 10000)
 
     # Find unenriched events
     events = await db.events.find(
-        {"distributor_id": {"$exists": False}},
+        {"$or": [{"distributor_id": {"$exists": False}}, {"distributor_id": None}]},
         {"_id": 1, "device_id": 1}
     ).limit(limit).to_list(limit)
 
     if not events:
-        return {"enriched": 0, "message": "All events already enriched"}
+        return {"enriched": 0, "message": "All events already enriched", "remaining": 0}
 
     # Build device lookup
     device_ids = list(set(e.get("device_id") for e in events if e.get("device_id")))
-    devices = await db.devices.find({"id": {"$in": device_ids}}, {"_id": 0}).to_list(len(device_ids))
+    devices = await db.devices.find({"id": {"$in": device_ids}}, {"_id": 0}).to_list(len(device_ids) + 10)
     dev_map = {d["id"]: d for d in devices}
 
     # Build retailer lookup
     retailer_ids = list(set(d.get("retailer_id") for d in devices if d.get("retailer_id")))
-    retailers = await db.route_retailers.find({"id": {"$in": retailer_ids}}, {"_id": 0}).to_list(len(retailer_ids))
+    retailers = await db.route_retailers.find({"id": {"$in": retailer_ids}}, {"_id": 0}).to_list(len(retailer_ids) + 10)
     ret_map = {r["id"]: r for r in retailers}
 
     enriched = 0
@@ -80,8 +80,8 @@ async def enrich_events_batch(request: Request):
         dev = dev_map.get(evt.get("device_id"), {})
         ret = ret_map.get(dev.get("retailer_id"), {})
         update = {
-            "distributor_id": dev.get("distributor_id"),
-            "operator_id": dev.get("retailer_id"),
+            "distributor_id": dev.get("distributor_id", "unknown"),
+            "operator_id": dev.get("retailer_id", "unknown"),
             "site_address": ret.get("address", ""),
             "site_city": ret.get("city", ""),
             "site_county": ret.get("county", ""),
@@ -92,7 +92,8 @@ async def enrich_events_batch(request: Request):
         await db.events.update_one({"_id": evt["_id"]}, {"$set": update})
         enriched += 1
 
-    return {"enriched": enriched, "remaining": await db.events.count_documents({"distributor_id": {"$exists": False}})}
+    remaining = await db.events.count_documents({"$or": [{"distributor_id": {"$exists": False}}, {"distributor_id": None}]})
+    return {"enriched": enriched, "remaining": remaining, "message": f"Enriched {enriched} events" + (" — all done!" if remaining == 0 else f", {remaining} remaining")}
 
 
 @router.get("/statutory/duration-of-play")
@@ -327,7 +328,14 @@ def _pad(value, length, align='left', fill=' '):
     return s.ljust(length, fill) if align == 'left' else s.rjust(length, fill)
 
 def _num(value, length):
-    return str(int(value)).rjust(length, '0')
+    return str(int(value)).rjust(length, '0')[:length]
+
+def _rec94(*fields):
+    """Join fields and enforce exactly 94 characters."""
+    line = ''.join(fields)
+    if len(line) < 94:
+        line = line + ' ' * (94 - len(line))
+    return line[:94]
 
 
 @router.post("/eft/generate-nacha")
@@ -356,22 +364,23 @@ async def generate_nacha_compliant(request: Request):
     file_time = now.strftime("%H%M")
     lines = []
 
-    # ── File Header Record (1) ──
-    lines.append(
-        "1"                          # Record Type
-        + "01"                       # Priority Code
-        + " 091000019"               # Immediate Destination (Fed Reserve)
-        + " 1234567890"              # Immediate Origin (Company)
-        + file_date                  # File Creation Date YYMMDD
-        + file_time                  # File Creation Time HHMM
-        + "A"                        # File ID Modifier
-        + "094"                      # Record Size
-        + "10"                       # Blocking Factor
-        + "1"                        # Format Code
-        + _pad("FEDERAL RESERVE", 23)     # Destination Name
-        + _pad("UGG GAMING GATEWAY", 23)  # Origin Name
-        + _pad("UGGEFT", 8)              # Reference Code
-    )
+    # ── File Header Record (1) — exactly 94 chars ──
+    # Positions: RecordType(1) PriorityCode(2) ImmDest(10) ImmOrigin(10) Date(6) Time(4) FileIDMod(1) RecSize(3) BlockFact(2) FormatCode(1) DestName(23) OriginName(23) RefCode(8)
+    lines.append(_rec94(
+        "1",                              # 1: Record Type Code
+        "01",                             # 2-3: Priority Code
+        _pad(" 091000019", 10),           # 4-13: Immediate Destination (b+routing)
+        _pad("1234567890", 10),           # 14-23: Immediate Origin (company ID)
+        file_date,                        # 24-29: File Creation Date YYMMDD
+        file_time,                        # 30-33: File Creation Time HHMM
+        "A",                              # 34: File ID Modifier
+        "094",                            # 35-37: Record Size
+        "10",                             # 38-39: Blocking Factor
+        "1",                              # 40: Format Code
+        _pad("FEDERAL RESERVE", 23),      # 41-63: Immediate Dest Name
+        _pad("UGG GAMING GATEWAY", 23),   # 64-86: Immediate Origin Name
+        _pad("UGGEFT", 8),               # 87-94: Reference Code
+    ))
 
     batch_num = 0
     total_debit = 0
@@ -386,72 +395,76 @@ async def generate_nacha_compliant(request: Request):
 
         batch_num += 1
         amount_cents = max(0, r["total_nor"])
-        entry_count = len(r["device_count"])
 
-        # ── Batch Header Record (5) ──
-        lines.append(
-            "5"                          # Record Type
-            + "220"                      # Service Class (220=credits+debits)
-            + _pad(dist.get("name", ""), 16)  # Company Name
-            + _pad("", 20)               # Discretionary Data
-            + _pad(dist.get("state_license", ""), 10)  # Company ID
-            + "PPD"                      # Entry Class Code
-            + _pad("NOR SWEEP", 10)      # Entry Description
-            + file_date                  # Descriptive Date
-            + file_date                  # Effective Date
-            + "   "                      # Settlement Date
-            + "1"                        # Originator Status
-            + _pad("091000019", 8)       # Originating DFI
-            + _num(batch_num, 7)         # Batch Number
-        )
+        # ── Batch Header Record (5) — 94 chars ──
+        # RecordType(1) ServiceClass(3) CompanyName(16) DiscretionaryData(20) CompanyID(10) SECCode(3) EntryDesc(10) CompDescDate(6) EffectiveDate(6) SettlementDate(3) OriginatorStatus(1) OriginatingDFI(8) BatchNum(7)
+        lines.append(_rec94(
+            "5",
+            "220",
+            _pad(dist.get("name", ""), 16),
+            _pad("", 20),
+            _pad(dist.get("state_license", ""), 10),
+            "PPD",
+            _pad("NOR SWEEP", 10),
+            file_date,
+            file_date,
+            "   ",
+            "1",
+            _pad("09100001", 8),
+            _num(batch_num, 7),
+        ))
 
-        # ── Entry Detail Record (6) — one per distributor ──
+        # ── Entry Detail Record (6) — 94 chars ──
+        # RecordType(1) TransCode(2) RDFI_Routing(9) DFIAcct(17) Amount(10) IndivID(15) IndivName(22) DiscData(2) AddendaInd(1) TraceNum(15)
         trace_seq = 1
-        routing = dist.get("bank_routing", "091000019")
+        routing = dist.get("bank_routing", "091000019")[:9]
         account = dist.get("bank_account", "0000000000")
         entry_hash += int(routing[:8])
 
-        lines.append(
-            "6"                          # Record Type
-            + "22"                       # Transaction Code (22=credit checking)
-            + _pad(routing, 9)           # Receiving DFI Routing
-            + _pad(account, 17)          # DFI Account Number
-            + _num(amount_cents, 10)     # Amount in cents
-            + _pad(dist.get("state_license", ""), 15)  # Individual ID
-            + _pad(dist.get("name", ""), 22)  # Individual Name
-            + "  "                       # Discretionary Data
-            + "0"                        # Addenda Record Indicator
-            + _pad(routing[:8], 8) + _num(trace_seq, 7)  # Trace Number
-        )
+        lines.append(_rec94(
+            "6",
+            "22",
+            _pad(routing, 9),
+            _pad(account, 17),
+            _num(amount_cents, 10),
+            _pad(dist.get("state_license", ""), 15),
+            _pad(dist.get("name", ""), 22),
+            "  ",
+            "0",
+            _pad(routing[:8], 8) + _num(trace_seq, 7),
+        ))
         total_credit += amount_cents
         total_entries += 1
 
-        # ── Batch Control Record (8) ──
-        lines.append(
-            "8"                          # Record Type
-            + "220"                      # Service Class
-            + _num(1, 6)                 # Entry/Addenda Count
-            + _num(entry_hash % 10000000000, 10)  # Entry Hash
-            + _num(0, 12)               # Total Debit Amount
-            + _num(amount_cents, 12)    # Total Credit Amount
-            + _pad(dist.get("state_license", ""), 10)  # Company ID
-            + _pad("", 25)              # Message Auth Code + Reserved
-            + _pad("091000019", 8)      # Originating DFI
-            + _num(batch_num, 7)        # Batch Number
-        )
+        # ── Batch Control Record (8) — 94 chars ──
+        # RecordType(1) ServiceClass(3) EntryCount(6) EntryHash(10) TotalDebit(12) TotalCredit(12) CompanyID(10) MsgAuthCode(19) Reserved(6) OriginatingDFI(8) BatchNum(7)
+        lines.append(_rec94(
+            "8",
+            "220",
+            _num(1, 6),
+            _num(entry_hash % 10000000000, 10),
+            _num(0, 12),
+            _num(amount_cents, 12),
+            _pad(dist.get("state_license", ""), 10),
+            _pad("", 19),
+            _pad("", 6),
+            _pad("09100001", 8),
+            _num(batch_num, 7),
+        ))
 
-    # ── File Control Record (9) ──
-    block_count = (len(lines) + 1 + 9) // 10  # +1 for this record, round up to 10
-    lines.append(
-        "9"                          # Record Type
-        + _num(batch_num, 6)         # Batch Count
-        + _num(block_count, 6)       # Block Count
-        + _num(total_entries, 8)     # Entry/Addenda Count
-        + _num(entry_hash % 10000000000, 10)  # Entry Hash
-        + _num(total_debit, 12)      # Total Debit
-        + _num(total_credit, 12)     # Total Credit
-        + _pad("", 39)              # Reserved
-    )
+    # ── File Control Record (9) — 94 chars ──
+    # RecordType(1) BatchCount(6) BlockCount(6) EntryCount(8) EntryHash(10) TotalDebit(12) TotalCredit(12) Reserved(39)
+    block_count = (len(lines) + 1 + 9) // 10
+    lines.append(_rec94(
+        "9",
+        _num(batch_num, 6),
+        _num(block_count, 6),
+        _num(total_entries, 8),
+        _num(entry_hash % 10000000000, 10),
+        _num(total_debit, 12),
+        _num(total_credit, 12),
+        _pad("", 39),
+    ))
 
     # Pad to blocking factor of 10
     while len(lines) % 10 != 0:
