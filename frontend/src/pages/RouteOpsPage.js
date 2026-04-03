@@ -3,7 +3,8 @@ import api from '@/lib/api';
 import {
   MapPin, CurrencyDollar, Warning, ShieldCheck, WifiHigh,
   Receipt, Funnel, Check, CaretRight, ArrowUp, ArrowDown,
-  Buildings, Lightning, Clock, Pulse, FileText
+  Buildings, Lightning, Clock, Pulse, FileText, Users,
+  Gauge, Scroll, LockKey
 } from '@phosphor-icons/react';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -50,6 +51,11 @@ export default function RouteOpsPage() {
   const [distributors, setDistributors] = useState([]);
   const [distFilter, setDistFilter] = useState('');
   const [excTypeFilter, setExcTypeFilter] = useState('');
+  const [statutory, setStatutory] = useState(null);
+  const [rbacRoles, setRbacRoles] = useState(null);
+  const [rbacUsers, setRbacUsers] = useState([]);
+  const [perfMetrics, setPerfMetrics] = useState(null);
+  const [nachaResult, setNachaResult] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -75,6 +81,17 @@ export default function RouteOpsPage() {
       setBufferStatus(bufR.data);
       setEftFiles(eftR.data.files || []);
       setDistributors(distR.data.distributors || []);
+      // Advanced modules
+      const [statR, rbacR, rbacUR, perfR] = await Promise.all([
+        api.get('/route/advanced/statutory/enrichment-status'),
+        api.get('/route/advanced/rbac/roles'),
+        api.get('/route/advanced/rbac/users').catch(() => ({ data: { users: [] } })),
+        api.get('/route/advanced/performance/metrics'),
+      ]);
+      setStatutory(statR.data);
+      setRbacRoles(rbacR.data.roles);
+      setRbacUsers(rbacUR.data.users || []);
+      setPerfMetrics(perfR.data);
     } catch (err) { console.error(err); }
   }, [distFilter, excTypeFilter]);
 
@@ -90,14 +107,28 @@ export default function RouteOpsPage() {
     fetchData();
   };
 
+  const enrichEvents = async () => {
+    await api.post('/route/advanced/statutory/enrich-batch', { limit: 1000 });
+    fetchData();
+  };
+
+  const generateNacha = async () => {
+    const { data } = await api.post('/route/advanced/eft/generate-nacha', { sweep_type: 'WEEKLY' });
+    setNachaResult(data);
+    fetchData();
+  };
+
   const d = dashboard;
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Pulse },
     { id: 'nor', label: 'NOR Accounting', icon: CurrencyDollar },
     { id: 'exceptions', label: 'Exceptions', icon: Warning },
     { id: 'integrity', label: 'Integrity', icon: ShieldCheck },
+    { id: 'statutory', label: 'Statutory', icon: Scroll },
+    { id: 'rbac', label: 'RBAC Portal', icon: LockKey },
     { id: 'buffer', label: 'Offline Buffer', icon: WifiHigh },
-    { id: 'eft', label: 'EFT Files', icon: FileText },
+    { id: 'eft', label: 'EFT/NACHA', icon: FileText },
+    { id: 'performance', label: 'Performance', icon: Gauge },
   ];
 
   return (
@@ -338,10 +369,45 @@ export default function RouteOpsPage() {
         <div className="space-y-4" data-testid="route-eft">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono" style={{ color: '#6B7A90' }}>{eftFiles.length} EFT files</span>
-            <button data-testid="generate-eft-btn" onClick={generateEft} className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
-              <FileText size={14} /> Generate Manual Sweep
-            </button>
+            <div className="flex gap-2">
+              <button data-testid="generate-nacha-btn" onClick={generateNacha} className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#007AFF', color: '#E8ECF1' }}>
+                <FileText size={14} /> Generate NACHA-Compliant
+              </button>
+              <button data-testid="generate-eft-btn" onClick={generateEft} className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
+                <FileText size={14} /> Quick Sweep
+              </button>
+            </div>
           </div>
+          {nachaResult && (
+            <div className="rounded border p-4 space-y-3" style={{ background: '#12151C', borderColor: nachaResult.nacha_compliant ? '#00D4AA40' : '#FF3B3040' }}>
+              <div className="flex items-center gap-2">
+                <span className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>NACHA Validation</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: nachaResult.nacha_compliant ? 'rgba(0,212,170,0.1)' : 'rgba(255,59,48,0.1)', color: nachaResult.nacha_compliant ? '#00D4AA' : '#FF3B30' }}>
+                  {nachaResult.nacha_compliant ? 'COMPLIANT' : 'ERRORS FOUND'}
+                </span>
+              </div>
+              {nachaResult.validation?.checks?.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: c.passed ? 'rgba(0,212,170,0.15)' : 'rgba(255,59,48,0.15)' }}>
+                    {c.passed ? <Check size={10} style={{ color: '#00D4AA' }} /> : <Warning size={10} style={{ color: '#FF3B30' }} />}
+                  </span>
+                  <span style={{ color: c.passed ? '#A3AEBE' : '#FF3B30' }}>{c.check}</span>
+                </div>
+              ))}
+              {nachaResult.validation?.record_counts && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {Object.entries(nachaResult.validation.record_counts).map(([k, v]) => (
+                    <div key={k} className="text-[10px] font-mono px-2 py-1 rounded" style={{ background: '#1A1E2A' }}>
+                      <span style={{ color: '#6B7A90' }}>{k}: </span><span style={{ color: '#E8ECF1' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>
+                {nachaResult.filename} | {nachaResult.entry_count} entries | ${((nachaResult.total_amount_cents || 0) / 100).toLocaleString()} | {nachaResult.line_count} lines
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             {eftFiles.map(f => (
               <div key={f.id} className="rounded border px-4 py-3 flex items-center gap-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
@@ -350,6 +416,11 @@ export default function RouteOpsPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-medium" style={{ color: '#E8ECF1' }}>{f.filename}</span>
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: f.status === 'TRANSMITTED' ? 'rgba(0,212,170,0.1)' : 'rgba(245,166,35,0.1)', color: f.status === 'TRANSMITTED' ? '#00D4AA' : '#F5A623' }}>{f.status}</span>
+                    {f.nacha_compliant !== undefined && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: f.nacha_compliant ? 'rgba(0,212,170,0.1)' : 'rgba(255,59,48,0.1)', color: f.nacha_compliant ? '#00D4AA' : '#FF3B30' }}>
+                        {f.nacha_compliant ? 'NACHA OK' : 'NACHA ERR'}
+                      </span>
+                    )}
                   </div>
                   <div className="text-[10px] font-mono mt-0.5" style={{ color: '#6B7A90' }}>
                     {f.period_start} to {f.period_end} | {f.sweep_type} | {f.entry_count} entries | ${(f.total_amount_cents / 100).toLocaleString()}
@@ -358,6 +429,180 @@ export default function RouteOpsPage() {
                 <span className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{new Date(f.generated_at).toLocaleString()}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STATUTORY TAB ═══ */}
+      {activeTab === 'statutory' && statutory && (
+        <div className="space-y-4" data-testid="route-statutory">
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-lg font-semibold" style={{ color: '#E8ECF1' }}>Statutory Reporting Fields (Module 4)</h3>
+            <button data-testid="enrich-events-btn" onClick={enrichEvents} className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
+              <Scroll size={14} /> Enrich Events
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <KPI label="Total Events" value={statutory.total_events?.toLocaleString()} color="#E8ECF1" />
+            <KPI label="Enriched" value={statutory.enriched_events?.toLocaleString()} color="#00D4AA" icon={Check} />
+            <KPI label="Missing" value={statutory.missing_enrichment?.toLocaleString()} color={statutory.missing_enrichment > 0 ? '#FF3B30' : '#00D4AA'} />
+            <KPI label="Enrichment Rate" value={`${statutory.enrichment_rate}%`} color={statutory.enrichment_rate >= 95 ? '#00D4AA' : '#F5A623'} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+              <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Required Statutory Fields</div>
+              <div className="space-y-1.5">
+                {["distributor_id", "operator_id", "site_address", "site_city", "site_county", "software_version", "software_signature", "device_serial"].map(f => (
+                  <div key={f} className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono" style={{ background: '#1A1E2A' }}>
+                    <Check size={12} style={{ color: '#00D4AA' }} />
+                    <span style={{ color: '#E8ECF1' }}>{f}</span>
+                    <span className="ml-auto text-[10px]" style={{ color: '#6B7A90' }}>mandatory</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+              <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Events by County</div>
+              <div className="space-y-1.5">
+                {(statutory.by_county || []).map((c, i) => (
+                  <div key={c.county || i} className="flex items-center justify-between px-3 py-2 rounded text-xs" style={{ background: '#1A1E2A' }}>
+                    <span style={{ color: '#E8ECF1' }}>{c.county || 'Not Enriched'}</span>
+                    <span className="font-mono" style={{ color: '#00D4AA' }}>{c.count?.toLocaleString()}</span>
+                  </div>
+                ))}
+                {(!statutory.by_county || statutory.by_county.length === 0) && (
+                  <div className="text-xs text-center py-4" style={{ color: '#6B7A90' }}>Run enrichment to see county breakdown</div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+            <div className="text-[11px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#6B7A90' }}>Enrichment Coverage</div>
+            <div className="h-3 rounded-full overflow-hidden" style={{ background: '#272E3B' }}>
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${statutory.enrichment_rate || 0}%`, background: statutory.enrichment_rate >= 95 ? '#00D4AA' : statutory.enrichment_rate >= 50 ? '#F5A623' : '#FF3B30' }} />
+            </div>
+            <div className="flex justify-between text-[10px] font-mono mt-1" style={{ color: '#6B7A90' }}>
+              <span>0%</span><span>{statutory.enrichment_rate}% enriched</span><span>100%</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ RBAC PORTAL TAB ═══ */}
+      {activeTab === 'rbac' && (
+        <div className="space-y-4" data-testid="route-rbac">
+          <h3 className="font-heading text-lg font-semibold" style={{ color: '#E8ECF1' }}>4-Tier RBAC Portal (Module 7)</h3>
+          {/* Tier Cards */}
+          <div className="grid grid-cols-4 gap-3">
+            {rbacRoles && Object.entries(rbacRoles).map(([role, perms], i) => {
+              const tierColors = ['#FFD700', '#00D4AA', '#007AFF', '#8B5CF6'];
+              return (
+                <div key={role} className="rounded border p-4" style={{ background: '#12151C', borderColor: `${tierColors[i]}30` }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: `${tierColors[i]}20`, color: tierColors[i] }}>Tier {perms.tier}</span>
+                    <span className="text-xs font-medium" style={{ color: '#E8ECF1' }}>{perms.label}</span>
+                  </div>
+                  <div className="text-[10px] mb-3" style={{ color: '#6B7A90' }}>{perms.description}</div>
+                  <div className="space-y-1">
+                    {['can_view_revenue', 'can_view_devices', 'can_view_integrity', 'can_view_eft', 'can_enable_disable_devices'].map(perm => (
+                      <div key={perm} className="flex items-center gap-1.5 text-[9px] font-mono">
+                        <span className="w-3 h-3 rounded-full flex items-center justify-center" style={{ background: perms[perm] ? 'rgba(0,212,170,0.15)' : 'rgba(255,59,48,0.1)' }}>
+                          {perms[perm] ? <Check size={8} style={{ color: '#00D4AA' }} /> : <span style={{ color: '#FF3B30' }}>-</span>}
+                        </span>
+                        <span style={{ color: perms[perm] ? '#A3AEBE' : '#6B7A90' }}>{perm.replace(/can_|_/g, ' ').trim()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* User List */}
+          <div className="rounded border overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+            <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: '#272E3B' }}>
+              <Users size={16} style={{ color: '#007AFF' }} />
+              <span className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Portal Users</span>
+            </div>
+            <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] uppercase tracking-wider font-medium border-b" style={{ color: '#6B7A90', borderColor: '#272E3B' }}>
+              <div className="col-span-3">Name</div><div className="col-span-3">Email</div><div className="col-span-2">Role</div><div className="col-span-1">Tier</div><div className="col-span-3">Scope</div>
+            </div>
+            {rbacUsers.map(u => {
+              const tierColors = { state_regulator: '#FFD700', distributor_admin: '#00D4AA', retailer_viewer: '#007AFF', manufacturer_viewer: '#8B5CF6', admin: '#FF3B30', operator: '#A3AEBE', engineer: '#F5A623' };
+              const perms = u.permissions || {};
+              return (
+                <div key={u.email} className="grid grid-cols-12 gap-2 px-4 py-2.5 border-b text-xs hover:bg-white/[0.02]" style={{ borderColor: '#272E3B10' }}>
+                  <div className="col-span-3 font-medium" style={{ color: '#E8ECF1' }}>{u.name}</div>
+                  <div className="col-span-3 font-mono" style={{ color: '#A3AEBE' }}>{u.email}</div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${tierColors[u.role] || '#6B7A90'}15`, color: tierColors[u.role] || '#6B7A90' }}>
+                      {u.role?.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <div className="col-span-1 font-mono" style={{ color: tierColors[u.role] }}>{perms.tier || '-'}</div>
+                  <div className="col-span-3 text-[10px] font-mono" style={{ color: '#6B7A90' }}>{perms.data_scope || 'full'}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PERFORMANCE TAB ═══ */}
+      {activeTab === 'performance' && perfMetrics && (
+        <div className="space-y-4" data-testid="route-performance">
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-lg font-semibold" style={{ color: '#E8ECF1' }}>Performance Metrics (Module 8)</h3>
+            <span className="text-xs font-mono" style={{ color: '#00D4AA' }}>Metrics collected in {perfMetrics.total_metrics_time_ms}ms</span>
+          </div>
+          {/* Scale Projections */}
+          <div className="grid grid-cols-4 gap-3">
+            <KPI label="Current Devices" value={perfMetrics.scale_projections?.current_devices} color="#00D4AA" />
+            <KPI label="Year 1 Target" value={perfMetrics.scale_projections?.year1_target?.toLocaleString()} color="#007AFF" sub={`${perfMetrics.scale_projections?.year1_events_per_sec} evt/sec`} />
+            <KPI label="Year 5 Target" value={perfMetrics.scale_projections?.year5_target?.toLocaleString()} color="#F5A623" sub={`${perfMetrics.scale_projections?.year5_events_per_sec} evt/sec`} />
+            <KPI label="Year 5 Events/yr" value={`${perfMetrics.scale_projections?.year5_annual_events_billions}B`} color="#FF3B30" sub={`${perfMetrics.scale_projections?.year5_meter_rows_billions}B meter rows`} />
+          </div>
+          {/* Query Benchmarks */}
+          <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+            <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Query Benchmarks</div>
+            <div className="space-y-2">
+              {perfMetrics.benchmarks?.map((b, i) => {
+                const target = b.query.includes('NOR') ? 2000 : b.query.includes('exception') ? 500 : 200;
+                const ok = b.ms <= target;
+                return (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded" style={{ background: '#1A1E2A' }}>
+                    <span className="w-3 h-3 rounded-full" style={{ background: ok ? '#00D4AA' : '#FF3B30' }} />
+                    <span className="text-xs flex-1" style={{ color: '#A3AEBE' }}>{b.query}</span>
+                    <span className="font-mono text-xs" style={{ color: ok ? '#00D4AA' : '#FF3B30' }}>{b.ms}ms</span>
+                    <span className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>target: {target}ms</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Database Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+              <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Collection Sizes</div>
+              <div className="space-y-1">
+                {Object.entries(perfMetrics.db_stats || {}).sort((a, b) => b[1] - a[1]).map(([coll, count]) => (
+                  <div key={coll} className="flex items-center justify-between px-2 py-1.5 rounded text-xs" style={{ background: '#1A1E2A' }}>
+                    <span className="font-mono" style={{ color: '#A3AEBE' }}>{coll}</span>
+                    <span className="font-mono font-bold" style={{ color: '#E8ECF1' }}>{count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
+              <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Performance Targets (Module 8 Spec)</div>
+              <div className="space-y-1.5">
+                {Object.entries(perfMetrics.targets || {}).map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between px-2 py-1.5 rounded text-xs" style={{ background: '#1A1E2A' }}>
+                    <span style={{ color: '#A3AEBE' }}>{k.replace(/_/g, ' ')}</span>
+                    <span className="font-mono" style={{ color: '#00D4AA' }}>{v}ms</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -146,8 +146,11 @@ async def register(inp: RegisterInput, response: Response):
         "email": email,
         "password_hash": hash_password(inp.password),
         "name": inp.name,
-        "role": inp.role if inp.role in ["admin", "operator", "engineer"] else "operator",
+        "role": inp.role if inp.role in ["admin", "operator", "engineer", "state_regulator", "distributor_admin", "retailer_viewer", "manufacturer_viewer"] else "operator",
         "tenant_id": None,
+        "distributor_id": None,
+        "retailer_id": None,
+        "manufacturer_id": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     result = await db.users.insert_one(user_doc)
@@ -278,3 +281,25 @@ async def seed_admin():
     await db.users.create_index("email", unique=True)
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.login_attempts.create_index("identifier")
+
+    # Seed 4-tier route portal users
+    route_users = [
+        {"email": "regulator@state.nv.gov", "name": "State Regulator", "role": "state_regulator", "password": "SASG2S2026"},
+        {"email": "ops@starlightgaming.com", "name": "Starlight Distributor Admin", "role": "distributor_admin", "password": "SASG2S2026"},
+        {"email": "manager@joesbargrill.com", "name": "Joe's Bar Retailer", "role": "retailer_viewer", "password": "SASG2S2026"},
+        {"email": "support@aristocrat.com", "name": "Aristocrat Manufacturer", "role": "manufacturer_viewer", "password": "SASG2S2026"},
+    ]
+    for ru in route_users:
+        existing = await db.users.find_one({"email": ru["email"]})
+        if not existing:
+            await db.users.insert_one({
+                "email": ru["email"],
+                "password_hash": hash_password(ru["password"]),
+                "name": ru["name"],
+                "role": ru["role"],
+                "tenant_id": None,
+                "distributor_id": None,
+                "retailer_id": None,
+                "manufacturer_id": ru.get("manufacturer_id"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
