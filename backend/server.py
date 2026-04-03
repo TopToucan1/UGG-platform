@@ -30,6 +30,7 @@ from routes.jackpots import router as jackpots_router
 from routes.export import router as export_router
 from routes.swf_analyzer import router as swf_analyzer_router
 from routes.content_registry import router as content_registry_router
+from routes.route_ops import router as route_ops_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ app.include_router(jackpots_router)
 app.include_router(export_router)
 app.include_router(swf_analyzer_router)
 app.include_router(content_registry_router)
+app.include_router(route_ops_router)
 
 
 @app.get("/api")
@@ -85,6 +87,8 @@ async def startup():
     await seed_financial_and_players()
     from seed_marketplace import seed_marketplace_and_jackpots
     await seed_marketplace_and_jackpots()
+    from seed_route import seed_route_module
+    await seed_route_module()
     # Start real-time event generator
     from routes.events import start_event_generator
     start_event_generator()

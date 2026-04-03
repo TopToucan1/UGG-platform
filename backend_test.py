@@ -723,6 +723,94 @@ class UGGAPITester:
             print("❌ No content found for deploy test")
             return False
 
+    # ROUTE OPERATIONS TESTS
+    def test_route_dashboard(self):
+        """Test route operations dashboard endpoint"""
+        return self.run_test("Route Dashboard", "GET", "route/dashboard", 200)
+
+    def test_route_distributors(self):
+        """Test route distributors list endpoint"""
+        return self.run_test("Route Distributors", "GET", "route/distributors", 200)
+
+    def test_route_retailers(self):
+        """Test route retailers list endpoint"""
+        return self.run_test("Route Retailers", "GET", "route/retailers", 200)
+
+    def test_route_nor_summary(self):
+        """Test route NOR summary endpoint"""
+        return self.run_test("Route NOR Summary", "GET", "route/nor/summary?days=30", 200)
+
+    def test_route_nor_daily_trend(self):
+        """Test route NOR daily trend endpoint"""
+        return self.run_test("Route NOR Daily Trend", "GET", "route/nor/daily-trend?days=30", 200)
+
+    def test_route_nor_periods(self):
+        """Test route NOR periods list endpoint"""
+        return self.run_test("Route NOR Periods", "GET", "route/nor?limit=50", 200)
+
+    def test_route_exceptions(self):
+        """Test route exceptions list endpoint"""
+        return self.run_test("Route Exceptions", "GET", "route/exceptions?limit=50", 200)
+
+    def test_route_exceptions_summary(self):
+        """Test route exceptions summary endpoint"""
+        return self.run_test("Route Exceptions Summary", "GET", "route/exceptions/summary", 200)
+
+    def test_route_exceptions_resolve(self):
+        """Test route exception resolution"""
+        # Get an active exception first
+        success, response = self.run_test("Get Active Exception for Resolve Test", "GET", "route/exceptions?active_only=true&limit=1", 200)
+        if success and response.get('exceptions'):
+            exception_id = response['exceptions'][0]['id']
+            resolve_data = {
+                "note": "Resolved during API testing"
+            }
+            return self.run_test(
+                f"Resolve Route Exception", 
+                "POST", 
+                f"route/exceptions/{exception_id}/resolve", 
+                200,
+                data=resolve_data
+            )
+        else:
+            print("❌ No active exceptions found for resolve test")
+            return False
+
+    def test_route_integrity(self):
+        """Test route integrity checks list endpoint"""
+        return self.run_test("Route Integrity Checks", "GET", "route/integrity?limit=50", 200)
+
+    def test_route_integrity_summary(self):
+        """Test route integrity summary endpoint"""
+        return self.run_test("Route Integrity Summary", "GET", "route/integrity/summary", 200)
+
+    def test_route_buffer_status(self):
+        """Test route offline buffer status endpoint"""
+        return self.run_test("Route Buffer Status", "GET", "route/buffer-status", 200)
+
+    def test_route_eft_files(self):
+        """Test route EFT files list endpoint"""
+        return self.run_test("Route EFT Files", "GET", "route/eft", 200)
+
+    def test_route_eft_generate(self):
+        """Test route EFT file generation"""
+        eft_data = {
+            "sweep_type": "MANUAL",
+            "period_start": "2024-12-01",
+            "period_end": "2024-12-07"
+        }
+        return self.run_test(
+            "Generate Route EFT File", 
+            "POST", 
+            "route/eft/generate", 
+            200,
+            data=eft_data
+        )
+
+    def test_route_sas_meter_map(self):
+        """Test route SAS meter map endpoint"""
+        return self.run_test("Route SAS Meter Map", "GET", "route/sas-meter-map", 200)
+
 def main():
     print("🚀 Starting UGG Platform API Tests")
     print("=" * 50)
@@ -839,6 +927,24 @@ def main():
     tester.test_content_registry_stats()
     tester.test_content_registry_detail()
     tester.test_content_registry_deploy()
+    
+    # Test ROUTE OPERATIONS FEATURES
+    print("\n🚛 Testing Route Operations Features...")
+    tester.test_route_dashboard()
+    tester.test_route_distributors()
+    tester.test_route_retailers()
+    tester.test_route_nor_summary()
+    tester.test_route_nor_daily_trend()
+    tester.test_route_nor_periods()
+    tester.test_route_exceptions()
+    tester.test_route_exceptions_summary()
+    tester.test_route_exceptions_resolve()
+    tester.test_route_integrity()
+    tester.test_route_integrity_summary()
+    tester.test_route_buffer_status()
+    tester.test_route_eft_files()
+    tester.test_route_eft_generate()
+    tester.test_route_sas_meter_map()
     
     # Print results
     print("\n" + "=" * 50)
