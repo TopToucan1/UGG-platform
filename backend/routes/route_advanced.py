@@ -564,3 +564,224 @@ async def validate_nacha_file(request: Request):
     lines = content.strip().split("\n") if content else []
     validation = _validate_nacha(lines)
     return validation
+
+
+
+# ══════════════════════════════════════════════════
+# REGULATORY COMPLIANCE DASHBOARD — state_regulator
+# ══════════════════════════════════════════════════
+
+@router.get("/regulatory/dashboard")
+async def regulatory_dashboard(request: Request):
+    """Full regulatory compliance dashboard — requires state_regulator or admin role."""
+    user = await get_current_user(request)
+    role = user.get("role")
+    if role not in ("state_regulator", "admin"):
+        raise HTTPException(status_code=403, detail="Requires state_regulator or admin role")
+
+    now = datetime.now(timezone.utc)
+    d30 = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    d7 = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+
+    # ── Estate Overview ──
+    total_devices = await db.devices.count_documents({})
+    online_devices = await db.devices.count_documents({"status": "online"})
+    total_distributors = await db.route_distributors.count_documents({})
+    total_retailers = await db.route_retailers.count_documents({})
+
+    # ── Statutory Compliance ──
+    total_events = await db.events.count_documents({})
+    enriched = await db.events.count_documents({"distributor_id": {"$exists": True, "$ne": None}})
+    enrichment_rate = round(enriched / total_events * 100, 1) if total_events > 0 else 0
+
+    # By county
+    county_pipe = [
+        {"$match": {"site_county": {"$exists": True, "$ne": None}}},
+        {"$group": {"_id": "$site_county", "events": {"$sum": 1}}},
+        {"$sort": {"events": -1}},
+    ]
+    by_county = await db.events.aggregate(county_pipe).to_list(20)
+
+    # ── Integrity Compliance ──
+    int_total = await db.route_integrity_checks.count_documents({})
+    int_pass = await db.route_integrity_checks.count_documents({"result": "PASS"})
+    int_fail = await db.route_integrity_checks.count_documents({"result": "FAIL"})
+    int_rate = round(int_pass / int_total * 100, 2) if int_total > 0 else 0
+
+    # Failed checks detail
+    failed_checks = await db.route_integrity_checks.find(
+        {"result": "FAIL"}, {"_id": 0}
+    ).sort("check_time", -1).limit(20).to_list(20)
+
+    # By trigger type
+    trigger_pipe = [{"$group": {"_id": "$trigger", "total": {"$sum": 1}, "passed": {"$sum": {"$cond": [{"$eq": ["$result", "PASS"]}, 1, 0]}}, "failed": {"$sum": {"$cond": [{"$eq": ["$result", "FAIL"]}, 1, 0]}}}}]
+    by_trigger = await db.route_integrity_checks.aggregate(trigger_pipe).to_list(10)
+
+    # ── NOR & Tax Revenue ──
+    nor_pipe = [
+        {"$match": {"period_start": {"$gte": d30}}},
+        {"$group": {
+            "_id": "$distributor_id",
+            "coin_in": {"$sum": "$coin_in"}, "coin_out": {"$sum": "$coin_out"},
+            "handpay": {"$sum": "$handpay_total"}, "voucher_out": {"$sum": "$voucher_out"},
+            "nor": {"$sum": "$net_operating_revenue"}, "tax": {"$sum": "$tax_amount"},
+            "devices": {"$addToSet": "$device_id"},
+        }},
+    ]
+    nor_results = await db.route_nor_periods.aggregate(nor_pipe).to_list(100)
+    dist_names = {d["id"]: d for d in await db.route_distributors.find({}, {"_id": 0}).to_list(100)}
+    distributor_compliance = []
+    grand_nor = 0
+    grand_tax = 0
+    grand_coin_in = 0
+    for r in nor_results:
+        dist = dist_names.get(r["_id"], {})
+        nor_val = r["nor"]
+        tax_val = r["tax"]
+        coin_in = r["coin_in"]
+        grand_nor += nor_val
+        grand_tax += tax_val
+        grand_coin_in += coin_in
+        # Check device integrity compliance for this distributor
+        dist_devices = r["devices"]
+        dist_int_total = await db.route_integrity_checks.count_documents({"device_id": {"$in": dist_devices}})
+        dist_int_pass = await db.route_integrity_checks.count_documents({"device_id": {"$in": dist_devices}, "result": "PASS"})
+        dist_int_rate = round(dist_int_pass / dist_int_total * 100, 1) if dist_int_total > 0 else 0
+        # Exception count
+        dist_exc = await db.route_exceptions.count_documents({"distributor_id": r["_id"], "is_active": True})
+        distributor_compliance.append({
+            "distributor_id": r["_id"],
+            "distributor_name": dist.get("name", "Unknown"),
+            "state_license": dist.get("state_license", ""),
+            "device_count": len(dist_devices),
+            "coin_in": coin_in,
+            "nor": nor_val,
+            "tax_collected": tax_val,
+            "tax_rate_bps": dist.get("tax_rate_bps", 500),
+            "hold_pct": round(nor_val / coin_in * 100, 2) if coin_in > 0 else 0,
+            "integrity_pass_rate": dist_int_rate,
+            "active_exceptions": dist_exc,
+            "compliance_score": _calc_compliance_score(enrichment_rate, dist_int_rate, dist_exc),
+        })
+    distributor_compliance.sort(key=lambda x: x["compliance_score"])
+
+    # ── Daily NOR trend for all distributors ──
+    trend_pipe = [
+        {"$match": {"period_start": {"$gte": d30}}},
+        {"$group": {"_id": "$period_start", "nor": {"$sum": "$net_operating_revenue"}, "tax": {"$sum": "$tax_amount"}, "coin_in": {"$sum": "$coin_in"}}},
+        {"$sort": {"_id": 1}},
+    ]
+    daily_trend = await db.route_nor_periods.aggregate(trend_pipe).to_list(60)
+
+    # ── Exception Summary ──
+    exc_total = await db.route_exceptions.count_documents({"is_active": True})
+    exc_critical = await db.route_exceptions.count_documents({"is_active": True, "severity": "CRITICAL"})
+    exc_pipe = [
+        {"$match": {"is_active": True}},
+        {"$group": {"_id": "$type", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    exc_by_type = await db.route_exceptions.aggregate(exc_pipe).to_list(20)
+
+    # ── EFT Compliance ──
+    eft_total = await db.route_eft_files.count_documents({})
+    eft_transmitted = await db.route_eft_files.count_documents({"status": "TRANSMITTED"})
+    eft_nacha_ok = await db.route_eft_files.count_documents({"nacha_compliant": True})
+    eft_amount_pipe = [{"$group": {"_id": None, "total": {"$sum": "$total_amount_cents"}}}]
+    eft_amounts = await db.route_eft_files.aggregate(eft_amount_pipe).to_list(1)
+    total_eft_cents = eft_amounts[0]["total"] if eft_amounts else 0
+
+    # ── Offline Buffer Risk ──
+    buffer_states = await db.route_buffer_states.find({}, {"_id": 0}).to_list(100)
+    agents_online = sum(1 for s in buffer_states if s["connectivity_state"] == "ONLINE")
+    agents_offline = sum(1 for s in buffer_states if s["connectivity_state"] in ("OFFLINE", "AUTO_DISABLED"))
+    total_pending = sum(s.get("pending_events", 0) for s in buffer_states)
+
+    # ── Overall Compliance Score ──
+    overall_score = _calc_compliance_score(enrichment_rate, int_rate, exc_critical)
+
+    return {
+        "estate": {"devices": total_devices, "online": online_devices, "distributors": total_distributors, "retailers": total_retailers},
+        "statutory_compliance": {
+            "total_events": total_events, "enriched": enriched, "rate": enrichment_rate,
+            "by_county": [{"county": c["_id"], "events": c["events"]} for c in by_county],
+        },
+        "integrity_compliance": {
+            "total_checks": int_total, "passed": int_pass, "failed": int_fail, "pass_rate": int_rate,
+            "failed_checks": failed_checks,
+            "by_trigger": [{"trigger": t["_id"], "total": t["total"], "passed": t["passed"], "failed": t["failed"]} for t in by_trigger],
+        },
+        "revenue": {
+            "grand_coin_in": grand_coin_in, "grand_nor": grand_nor, "grand_tax": grand_tax,
+            "hold_pct": round(grand_nor / grand_coin_in * 100, 2) if grand_coin_in > 0 else 0,
+            "daily_trend": [{"date": d["_id"], "nor": d["nor"], "tax": d["tax"], "coin_in": d["coin_in"]} for d in daily_trend],
+        },
+        "distributor_compliance": distributor_compliance,
+        "exceptions": {
+            "total_active": exc_total, "critical": exc_critical,
+            "by_type": [{"type": e["_id"], "count": e["count"]} for e in exc_by_type],
+        },
+        "eft_compliance": {
+            "total_files": eft_total, "transmitted": eft_transmitted, "nacha_compliant": eft_nacha_ok,
+            "total_swept_cents": total_eft_cents,
+        },
+        "buffer_risk": {"agents_online": agents_online, "agents_offline": agents_offline, "total_agents": len(buffer_states), "pending_events": total_pending},
+        "overall_compliance_score": overall_score,
+        "generated_at": now.isoformat(),
+    }
+
+
+def _calc_compliance_score(enrichment_rate, integrity_rate, critical_exceptions):
+    """Calculate a 0-100 compliance score."""
+    score = 0
+    score += min(enrichment_rate, 100) * 0.30          # 30% weight: statutory enrichment
+    score += min(integrity_rate, 100) * 0.40            # 40% weight: software integrity
+    score += max(0, 100 - critical_exceptions * 10) * 0.20  # 20% weight: no critical exceptions
+    score += 10                                          # 10% base for having the system running
+    return round(min(score, 100), 1)
+
+
+@router.get("/regulatory/distributor/{distributor_id}")
+async def regulatory_distributor_detail(request: Request, distributor_id: str):
+    """Detailed regulatory view for a single distributor."""
+    user = await get_current_user(request)
+    if user.get("role") not in ("state_regulator", "admin"):
+        raise HTTPException(status_code=403, detail="Requires state_regulator or admin role")
+
+    dist = await db.route_distributors.find_one({"id": distributor_id}, {"_id": 0})
+    if not dist:
+        raise HTTPException(status_code=404, detail="Distributor not found")
+
+    d30 = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    # Devices
+    devices = await db.devices.find({"distributor_id": distributor_id}, {"_id": 0, "id": 1, "external_ref": 1, "status": 1, "manufacturer": 1, "model": 1}).to_list(500)
+
+    # NOR
+    nor_pipe = [
+        {"$match": {"distributor_id": distributor_id, "period_start": {"$gte": d30}}},
+        {"$group": {"_id": "$period_start", "nor": {"$sum": "$net_operating_revenue"}, "coin_in": {"$sum": "$coin_in"}, "tax": {"$sum": "$tax_amount"}}},
+        {"$sort": {"_id": 1}},
+    ]
+    nor_trend = await db.route_nor_periods.aggregate(nor_pipe).to_list(60)
+
+    # Integrity for this distributor's devices
+    device_ids = [d["id"] for d in devices]
+    integrity = await db.route_integrity_checks.find({"device_id": {"$in": device_ids}}, {"_id": 0}).sort("check_time", -1).limit(50).to_list(50)
+
+    # Exceptions
+    exceptions = await db.route_exceptions.find({"distributor_id": distributor_id, "is_active": True}, {"_id": 0}).sort("raised_at", -1).to_list(50)
+
+    # Retailers
+    retailers = await db.route_retailers.find({"distributor_id": distributor_id}, {"_id": 0}).to_list(200)
+
+    return {
+        "distributor": dist,
+        "devices": devices,
+        "device_count": len(devices),
+        "retailers": retailers,
+        "retailer_count": len(retailers),
+        "nor_trend": [{"date": n["_id"], "nor": n["nor"], "coin_in": n["coin_in"], "tax": n["tax"]} for n in nor_trend],
+        "integrity_checks": integrity,
+        "active_exceptions": exceptions,
+    }
