@@ -29,6 +29,7 @@ export default function PIRSPage() {
   const [showNewRule, setShowNewRule] = useState(false);
   const [editRule, setEditRule] = useState(null);
   const [newRule, setNewRule] = useState({ name: '', trigger: 'coin_in_milestone', poc_fixed: 10, condition_churn_min: 50, max_per_day: 1, cooldown_min: 60, condition_time_window: 'always', message_template: 'You earned ${amount} in bonus credits!' });
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const fetchData = useCallback(async () => {
     const [dRes, pRes, rRes, roiRes, cRes, eRes] = await Promise.all([
@@ -285,18 +286,53 @@ export default function PIRSPage() {
               )}
               {/* Rule List */}
               {rules.map(r => (
-                <div key={r.id} className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: r.is_active ? '#00D97E30' : '#1A2540' }}>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => toggleRule(r.id)} className="w-10 h-5 rounded-full flex items-center transition-colors" style={{ background: r.is_active ? '#00D97E' : '#1A2540', justifyContent: r.is_active ? 'flex-end' : 'flex-start', padding: '2px' }}><span className="w-4 h-4 rounded-full" style={{ background: '#F0F4FF' }} /></button>
-                    <div className="flex-1">
-                      <div className="text-xs font-semibold" style={{ color: '#F0F4FF' }}>{r.name}</div>
-                      <div className="text-[10px] font-mono" style={{ color: '#4A6080' }}>
-                        Trigger: {r.trigger} | POC: <span style={{ color: '#00D97E' }}>${r.poc_fixed}</span> | Churn: {r.condition_churn_min || 'any'}+ | Max/day: {r.max_per_day || '∞'} | Cooldown: {r.cooldown_min || 0}min | Window: {r.condition_time_window || 'always'}
+                <div key={r.id} className="rounded-lg border p-4" style={{ background: editRule?.id === r.id ? '#111827' : '#0C1322', borderColor: editRule?.id === r.id ? '#FFD70040' : r.is_active ? '#00D97E30' : '#1A2540' }}>
+                  {/* Confirm Delete Dialog */}
+                  {confirmDeleteId === r.id && (
+                    <div className="mb-3 rounded-lg p-3 flex items-center justify-between" style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)' }}>
+                      <span className="text-xs font-medium" style={{ color: '#FF3B3B' }}>Are you sure you want to delete "{r.name}"? This cannot be undone.</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => { deleteRule(r.id); setConfirmDeleteId(null); }} className="px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B', color: '#F0F4FF' }}>Yes, Delete</button>
+                        <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1.5 rounded text-[10px]" style={{ color: '#4A6080', border: '1px solid #1A2540' }}>Cancel</button>
                       </div>
                     </div>
-                    {r.is_custom && <button onClick={() => deleteRule(r.id)} style={{ color: '#FF3B3B' }}><Trash size={14} /></button>}
-                    <span className="font-mono text-xs" style={{ color: r.is_active ? '#00D97E' : '#4A6080' }}>{r.is_active ? 'ACTIVE' : 'OFF'}</span>
-                  </div>
+                  )}
+                  {/* Edit Mode */}
+                  {editRule?.id === r.id ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between"><h4 className="text-xs font-semibold" style={{ color: '#FFD700' }}>Editing: {r.name}</h4></div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Rule Name</label><input value={editRule.name} onChange={e => setEditRule(p => ({ ...p, name: e.target.value }))} className="w-full px-2 py-1.5 rounded text-xs outline-none" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Trigger</label><select value={editRule.trigger} onChange={e => setEditRule(p => ({ ...p, trigger: e.target.value }))} className="w-full px-2 py-1.5 rounded text-xs outline-none" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['card_in', 'coin_in_milestone', 'session_duration', 'post_win_playback', 'lapse_risk', 'return_visit', 'churn_threshold'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>POC Amount ($)</label><input type="number" value={editRule.poc_fixed} onChange={e => setEditRule(p => ({ ...p, poc_fixed: +e.target.value }))} className="w-full px-2 py-1.5 rounded text-xs outline-none font-mono" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3">
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Min Churn</label><input type="number" value={editRule.condition_churn_min || ''} onChange={e => setEditRule(p => ({ ...p, condition_churn_min: +e.target.value || null }))} className="w-full px-2 py-1.5 rounded text-xs outline-none font-mono" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Max/Day</label><input type="number" value={editRule.max_per_day || ''} onChange={e => setEditRule(p => ({ ...p, max_per_day: +e.target.value || null }))} className="w-full px-2 py-1.5 rounded text-xs outline-none font-mono" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Cooldown (min)</label><input type="number" value={editRule.cooldown_min || ''} onChange={e => setEditRule(p => ({ ...p, cooldown_min: +e.target.value || null }))} className="w-full px-2 py-1.5 rounded text-xs outline-none font-mono" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                        <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Time Window</label><select value={editRule.condition_time_window || 'always'} onChange={e => setEditRule(p => ({ ...p, condition_time_window: e.target.value }))} className="w-full px-2 py-1.5 rounded text-xs outline-none" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['always', 'weekdays', 'weekends', 'happy_hour'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
+                      </div>
+                      <div><label className="block text-[8px] uppercase tracking-wider mb-0.5" style={{ color: '#4A6080' }}>Message Template</label><input value={editRule.message_template || ''} onChange={e => setEditRule(p => ({ ...p, message_template: e.target.value }))} className="w-full px-2 py-1.5 rounded text-xs outline-none" style={{ background: '#0C1322', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                      <div className="flex gap-2">
+                        <button onClick={() => updateRule(r.id, editRule)} className="px-4 py-1.5 rounded text-xs font-medium" style={{ background: '#00D97E', color: '#070B14' }}>Save Changes</button>
+                        <button onClick={() => setEditRule(null)} className="px-4 py-1.5 rounded text-xs" style={{ color: '#4A6080' }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* View Mode */
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => toggleRule(r.id)} className="w-10 h-5 rounded-full flex items-center transition-colors flex-shrink-0" style={{ background: r.is_active ? '#00D97E' : '#1A2540', justifyContent: r.is_active ? 'flex-end' : 'flex-start', padding: '2px' }}><span className="w-4 h-4 rounded-full" style={{ background: '#F0F4FF' }} /></button>
+                      <div className="flex-1">
+                        <div className="text-xs font-semibold" style={{ color: '#F0F4FF' }}>{r.name}</div>
+                        <div className="text-[10px] font-mono" style={{ color: '#4A6080' }}>
+                          Trigger: {r.trigger} | POC: <span style={{ color: '#00D97E' }}>${r.poc_fixed}</span> | Churn: {r.condition_churn_min || 'any'}+ | Max/day: {r.max_per_day || '∞'} | Cooldown: {r.cooldown_min || 0}min | Window: {r.condition_time_window || 'always'}
+                        </div>
+                      </div>
+                      <button data-testid={`edit-rule-${r.id}`} onClick={() => setEditRule({ ...r })} className="p-1.5 rounded transition-colors hover:bg-white/[0.05]" style={{ color: '#00B4D8' }} title="Edit rule"><Pencil size={14} /></button>
+                      {r.is_custom && <button data-testid={`delete-rule-${r.id}`} onClick={() => setConfirmDeleteId(r.id)} className="p-1.5 rounded transition-colors hover:bg-white/[0.05]" style={{ color: '#FF3B3B' }} title="Delete rule"><Trash size={14} /></button>}
+                      <span className="font-mono text-xs flex-shrink-0" style={{ color: r.is_active ? '#00D97E' : '#4A6080' }}>{r.is_active ? 'ACTIVE' : 'OFF'}</span>
+                    </div>
+                  )}
                 </div>
               ))}
               {/* Engine Status */}
