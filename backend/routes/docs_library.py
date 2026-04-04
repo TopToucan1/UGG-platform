@@ -12,7 +12,7 @@ DOC_SECTIONS = [
         {"id": "qs-welcome", "title": "Welcome to UGG", "content": """Welcome to the Universal Gaming Gateway! This guide will walk you through everything you need to know to manage your gaming route.
 
 **What is UGG?**
-UGG connects all your gaming machines (slot machines, video poker, etc.) to one central system. Instead of visiting each machine or each location, you can see everything from your computer or tablet.
+UGG connects all your Electronic Gaming Machines (EGMs) to one central system. Instead of visiting each machine or each location, you can see everything from your computer or tablet.
 
 **What can you do with UGG?**
 - See which machines are online or offline — right now, in real-time
@@ -601,7 +601,7 @@ Contact your UGG administrator or technical support team with:
 
         {"id": "ts-glossary", "title": "Glossary of Terms", "content": """**Common terms you'll see in UGG:**
 
-- **EGM** — Electronic Gaming Machine (slot machine, video poker, etc.)
+- **EGM** — Electronic Gaming Machine
 - **NOR** — Net Operating Revenue (money in minus money out = your profit)
 - **SAS** — Slot Accounting System, the older serial cable protocol for machines
 - **G2S** — Game-to-System, the newer network protocol for modern machines
