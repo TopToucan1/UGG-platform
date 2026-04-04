@@ -1396,6 +1396,130 @@ I need a database table called "game_events" with columns: id (auto-increment), 
 - No HTTP configuration needed
 - UGG handles all the polling and translation
 - If UGG is temporarily unreachable, the events just queue up in your database"""},
+
+        {"id": "indie-receive-messages", "title": "Receiving Messages from Operators", "content": """**Operators can send messages to your game screen — here's how to display them.**
+
+Route operators need to push messages to your game: promotions ("Earn 2X points this weekend!"), maintenance notices ("Scheduled maintenance tonight"), responsible gambling reminders, or urgent alerts. Your game needs to check for these messages and show them to the player.
+
+**How it works — 3 simple steps:**
+
+**Step 1: Your game polls UGG every 30 seconds**
+Send a GET request to this URL:
+`https://your-ugg-server.com/api/device-messages/poll/YOUR-DEVICE-ID`
+
+No login or authentication needed — just your device ID in the URL.
+
+**The response looks like this:**
+```json
+{
+  "device_id": "MY-GAME-001",
+  "messages": [
+    {
+      "id": "abc-123-def",
+      "text": "Earn 2X loyalty points this weekend!",
+      "type": "PROMO",
+      "duration_seconds": 30,
+      "position": "BOTTOM",
+      "background_color": "#00D97E",
+      "text_color": "#FFFFFF",
+      "priority": "NORMAL"
+    }
+  ],
+  "count": 1,
+  "poll_again_seconds": 30
+}
+```
+
+**Step 2: Display the message on your game screen**
+When you get messages back (count > 0), show them to the player:
+- **position** tells you where: "TOP", "BOTTOM", "CENTER", or "FULLSCREEN"
+- **duration_seconds** tells you how long to show it
+- **type** tells you the style: "INFO" (blue), "PROMO" (green), "MAINTENANCE" (yellow), "RESPONSIBLE_GAMBLING" (orange), "URGENT" (red)
+- **background_color** and **text_color** are optional custom colors
+
+**Step 3: Tell UGG the message was shown**
+After displaying the message, send a POST to:
+`https://your-ugg-server.com/api/device-messages/displayed/MESSAGE-ID`
+
+When the player dismisses it (clicks X or it times out), send:
+`https://your-ugg-server.com/api/device-messages/acknowledged/MESSAGE-ID`
+
+Replace MESSAGE-ID with the "id" field from the message.
+
+**That's it!** The operator in UGG can see that your game received and displayed the message."""},
+
+        {"id": "indie-message-prompts", "title": "Prompts: Adding Message Display to Your Game", "content": """**Copy-paste these prompts into your NoCode AI assistant to add message receiving:**
+
+**Prompt 1: Set up message polling**
+```
+I need my game application to check for new messages every 30 seconds from the UGG gaming system. Send a GET request to [YOUR-UGG-URL]/api/device-messages/poll/[YOUR-DEVICE-ID] (no authentication needed). The response is JSON with a "messages" array. Each message has: id (string), text (string to display), type (INFO/PROMO/MAINTENANCE/RESPONSIBLE_GAMBLING/URGENT), duration_seconds (how long to show it), position (TOP/BOTTOM/CENTER/FULLSCREEN), background_color (optional hex color), text_color (optional hex color). If the messages array is not empty, display each message to the user. Please set up this polling mechanism in [YOUR NOCODE PLATFORM].
+```
+
+**Prompt 2: Display the message banner**
+```
+When my game receives a message from UGG (from the polling response), I need to display it as a banner overlay on the game screen. The banner should: appear at the position specified (TOP/BOTTOM/CENTER/FULLSCREEN), use the background_color and text_color if provided (otherwise use defaults based on type: INFO=blue, PROMO=green, MAINTENANCE=yellow, URGENT=red), show the "text" field as the message content, have a close/dismiss X button, auto-hide after "duration_seconds" seconds if the player doesn't dismiss it. After the banner appears, send a POST to [YOUR-UGG-URL]/api/device-messages/displayed/MESSAGE_ID (no body needed). When the player clicks dismiss or the timer expires, send a POST to [YOUR-UGG-URL]/api/device-messages/acknowledged/MESSAGE_ID. Please build this message display component for [YOUR NOCODE PLATFORM].
+```
+
+**Prompt 3: Simple version for Bubble.io**
+```
+In my Bubble.io game app, I need to: 1) Set up a recurring workflow that runs every 30 seconds. 2) In that workflow, make an API call (GET) to [YOUR-UGG-URL]/api/device-messages/poll/[YOUR-DEVICE-ID]. 3) If the response has messages (count > 0), show a floating group/popup with the message text, styled based on the message type. 4) After showing the popup, make an API call (POST) to [YOUR-UGG-URL]/api/device-messages/displayed/[message-id]. 5) When the user closes the popup, make an API call (POST) to [YOUR-UGG-URL]/api/device-messages/acknowledged/[message-id]. Please give me step-by-step instructions for setting this up in Bubble.
+```
+
+**Prompt 4: For Make.com/Zapier (polling approach)**
+```
+I need a Make.com scenario that runs every 30 seconds (or 1 minute). Step 1: HTTP GET request to [YOUR-UGG-URL]/api/device-messages/poll/[YOUR-DEVICE-ID]. Step 2: If response.count > 0, for each message: send a notification to my game (via webhook, push notification, or Slack/Discord). Step 3: After sending, POST to [YOUR-UGG-URL]/api/device-messages/displayed/[message-id] to confirm delivery. This way my game gets real-time messages from the operator through my automation platform.
+```
+
+**Message types your game should handle:**
+- **INFO** — General information, show in blue/neutral style
+- **PROMO** — Promotional offers, show in green/exciting style with maybe a special icon
+- **MAINTENANCE** — System notices, show in yellow/warning style
+- **RESPONSIBLE_GAMBLING** — Required by regulators, show prominently in orange
+- **URGENT** — Critical alerts, show in red and don't auto-dismiss (require player to click)"""},
+
+        {"id": "indie-message-examples", "title": "Real Examples: What Operators Will Send", "content": """**Here are real-world messages operators send to EGM screens:**
+
+**Promotional messages (type: PROMO):**
+- "Earn 2X loyalty points this weekend!"
+- "Happy Hour: All wins doubled 4-6 PM"
+- "Join our Player's Club — ask the attendant"
+- "Progressive jackpot now over $50,000!"
+
+**Maintenance notices (type: MAINTENANCE):**
+- "Scheduled maintenance tonight 2:00-4:00 AM"
+- "System update in progress — brief interruption expected"
+- "Voucher printer maintenance — cash out may be delayed"
+
+**Responsible gambling (type: RESPONSIBLE_GAMBLING):**
+- "Know your limit. Play within it."
+- "Need help? Call 1-800-522-4700"
+- "You've been playing for over 2 hours. Consider taking a break."
+- "Set a spending limit before you play"
+These are REQUIRED by most state gaming regulators. Your game MUST be able to display these.
+
+**Urgent alerts (type: URGENT):**
+- "This machine is being taken out of service"
+- "Please see an attendant"
+- "Credit meter error — do not insert additional funds"
+
+**What your game display should look like:**
+- A semi-transparent banner overlaying your game
+- Clear, readable text (at least 16px font)
+- An X or "Close" button so the player can dismiss it
+- For RESPONSIBLE_GAMBLING and URGENT types, consider making the banner more prominent (larger, centered, maybe with a sound)
+
+**Minimum requirements for regulatory compliance:**
+1. Messages must be displayed within 30 seconds of being sent
+2. RESPONSIBLE_GAMBLING messages must be displayed prominently (not tiny text in a corner)
+3. URGENT messages should not auto-dismiss — require player action
+4. Your game must acknowledge receipt (the POST to /displayed/ endpoint)
+
+**Test your message display:**
+1. Log into UGG as an operator
+2. Go to Messages in the sidebar
+3. Create a new campaign targeting your device ID
+4. Send it
+5. Your game should show the message within 30 seconds (on its next poll)"""},
     ]},
 ]
 

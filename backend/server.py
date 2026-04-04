@@ -45,6 +45,7 @@ from routes.docs_library import router as docs_library_router
 from routes.route_v2 import router as route_v2_router
 from routes.security import router as security_router
 from routes.portal import router as portal_router
+from routes.device_messages import router as device_messages_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -116,6 +117,7 @@ app.include_router(docs_library_router)
 app.include_router(route_v2_router)
 app.include_router(security_router)
 app.include_router(portal_router)
+app.include_router(device_messages_router)
 
 
 @app.get("/api")
