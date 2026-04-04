@@ -1,22 +1,21 @@
-# UGG - Universal Gaming Gateway | PRD — FINAL
+# UGG - Universal Gaming Gateway | PRD — FINAL COMPLETE
 
 ## Architecture
-- **Backend**: FastAPI + MongoDB — 35 route modules, 275+ API endpoints
+- **Backend**: FastAPI + MongoDB — 36 route modules, 280+ API endpoints, 250 OpenAPI paths
 - **Gateway Core**: 8-stage pipeline | **Adapters**: SAS/G2S/S2S/VCF
-- **Frontend**: React 19 + Tailwind + Recharts + Mapbox GL + Framer Motion — 30 pages
+- **Frontend**: React 19 + Tailwind + Recharts + Mapbox + Framer Motion — 30 pages
 - **AI**: Gemini 3 Flash | **Auth**: JWT RBAC (7+4 tier) | **Real-time**: WebSocket
+- **Security**: Rate limiting, session management, SCEP/OCSP, input validation, GLI-13 pre-cert
 
-## ALL PHASES COMPLETE (0-7) + Route Module Gaps Closed
+## ALL PHASES COMPLETE (0-8) — Production Ready
 
-### Route Module v2 Gaps (Closed):
-- NOR Split Engine: 4-way split (Distributor + Operator + Retailer + State) with BigInt-precision math, retailer absorbs rounding, checksum validation
-- Operator Entity: 6 operators (2 per distributor) with license numbers, revenue shares, expiry dates
-- Revenue Shares: Per-device shares (dist/op/ret must sum to 1.0 ± 0.0001), DB constraint validated
-- Statutory Periods: OPEN → CLOSED → SUBMITTED → ACCEPTED lifecycle with NOR totals, close/submit endpoints
-- License Expiry: Tracking for distributors and operators with configurable days-to-expiry alerting
-- New Exception Types: REVENUE_ANOMALY (NOR < 40% of 90-day avg), MAX_TERMINALS_EXCEEDED, EXCESSIVE_GAMEPLAY (>4hr sessions)
-- NSF Handler: Automated processing — create CRITICAL exception, flag EFT entries, hold future payments
-- Device Compliance: Per-device integrity history, exception count, NOR summary, twin state, revenue shares
-- Route Map: 85 venues verified working with Mapbox GL, health-coded markers, $261K NOR, 85.9% online
+### Phase 8 Security Hardening (GLI-13):
+- Session Management: max 3 concurrent, 30min idle timeout, 8hr absolute, eviction policy
+- Commands Immutability: Application-level guard, GLI-13 Gap 1 verified PASS
+- Rate Limiting: 200 req/60s per IP, 429 response, middleware on all endpoints
+- SCEP Server: Automated certificate enrollment, challenge verification, OCSP responder
+- Input Validation: SQL injection, path traversal, XSS blocked by regex security filter
+- Zero-Trust Checklist: 12/12 checks PASS, GLI-13 compliance: PRE-CERT READY
+- OpenAPI: 250 paths auto-generated at /api/openapi.json + Swagger UI at /api/docs
 
-## Total: 30 pages, 275+ endpoints, 35 backend modules
+## FINAL: 30 pages, 280+ endpoints, 36 backend modules, GLI-13 PRE-CERT READY

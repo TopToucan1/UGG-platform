@@ -43,11 +43,28 @@ from routes.ai_analytics import router as ai_analytics_router
 from routes.hardware import router as hardware_router
 from routes.docs_library import router as docs_library_router
 from routes.route_v2 import router as route_v2_router
+from routes.security import router as security_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="UGG - Universal Gaming Gateway", version="1.0.0")
+app = FastAPI(title="UGG - Universal Gaming Gateway", version="1.0.0",
+              docs_url="/api/docs", openapi_url="/api/openapi.json")
+
+# Rate limiting middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse as StarletteJSONResponse
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        from routes.security import check_rate_limit
+        ip = request.client.host if request.client else "unknown"
+        if not check_rate_limit(ip):
+            return StarletteJSONResponse({"detail": "Rate limit exceeded. Try again later."}, status_code=429)
+        response = await call_next(request)
+        return response
+
+app.add_middleware(RateLimitMiddleware)
 
 # CORS
 cors_origins = os.environ.get('CORS_ORIGINS', '*')
@@ -96,6 +113,7 @@ app.include_router(ai_analytics_router)
 app.include_router(hardware_router)
 app.include_router(docs_library_router)
 app.include_router(route_v2_router)
+app.include_router(security_router)
 
 
 @app.get("/api")
