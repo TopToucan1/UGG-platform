@@ -619,6 +619,360 @@ Contact your UGG administrator or technical support team with:
 - **Site Controller** — The UGG Agent box at a venue that connects to the machines
 - **Statutory Fields** — Data fields required by state law on every event (distributor ID, county, etc.)"""},
     ]},
+
+    {"id": "egm-developer", "title": "EGM Developer Guide", "icon": "Plugs", "docs": [
+        {"id": "dev-overview", "title": "Getting Your EGM Working with UGG", "content": """**Welcome, EGM Manufacturer!**
+
+This guide is for you if you build Electronic Gaming Machines and want them to work with the UGG platform. Whether your EGM uses SAS, G2S, or your own proprietary protocol, UGG can connect to it.
+
+**Three paths to integration:**
+
+**Path 1: Your EGM already supports SAS**
+You're ready! UGG connects via RS-232 serial cable and polls your machine using standard SAS long polls. No custom development needed. Skip to "Testing with the Emulator Lab."
+
+**Path 2: Your EGM already supports G2S**
+You're also ready! UGG connects via SOAP/HTTP and runs the standard G2S startup sequence. No custom development needed. Skip to "Testing with the Emulator Lab."
+
+**Path 3: Your EGM has its own proprietary protocol**
+This is where UGG's Vendor Connector Framework shines. You'll build a "connector" that translates your protocol into UGG's standard format. This guide walks you through every step.
+
+**What you'll build:**
+A Connector Manifest — a configuration file that tells UGG how to talk to your machine. You won't need to modify your EGM's software. The connector sits between your machine and UGG, translating messages in both directions.
+
+**Time estimate:**
+- Simple REST API connector: 1-2 days
+- Database polling connector: 2-3 days
+- Full bidirectional connector: 3-5 days
+- Certification testing: 1-2 additional days"""},
+
+        {"id": "dev-canonical-events", "title": "Understanding UGG Canonical Events", "content": """**Every EGM event in UGG follows one standard format, regardless of protocol.**
+
+This is the key concept: your machine might report a "game ended" event differently than another manufacturer's machine, but UGG converts both into the same standard format called a Canonical Event.
+
+**The Canonical Event format:**
+Every event has these fields:
+- **event_type** — What happened (e.g., "device.game.start", "device.game.end", "device.door.opened")
+- **device_id** — Which machine it came from
+- **occurred_at** — When it happened (UTC timestamp)
+- **severity** — How important: "info", "warning", or "critical"
+- **payload** — The detailed data (varies by event type)
+- **protocol** — How it was received: "SAS", "G2S", or "PROPRIETARY"
+- **integrity_hash** — A checksum proving the data hasn't been tampered with
+
+**Common event types you need to map to:**
+- device.game.start — Player started a game (includes bet amount)
+- device.game.end — Game completed (includes win amount)
+- device.meter.changed — Meter values updated (coin in, coin out, etc.)
+- device.door.opened / device.door.closed — Cabinet door events
+- device.tilt — Machine error or fault condition
+- device.voucher.in / device.voucher.out — TITO ticket events
+- device.jackpot.handpay — Large win requiring hand-pay
+- device.player.card.in / device.player.card.out — Player tracking
+- device.status.online / device.status.offline — Connection state changes
+- device.bonus.triggered — Bonus game activated
+
+**Your job:** Map your machine's events to these canonical types. UGG's AI Studio can help automate this."""},
+
+        {"id": "dev-connector-types", "title": "Choosing Your Connector Type", "content": """**UGG supports 6 connector types. Pick the one that matches how your EGM communicates:**
+
+**1. REST (most common for modern EGMs)**
+Your EGM exposes an HTTP REST API that UGG polls at regular intervals.
+- Best for: EGMs with built-in web servers, cloud-connected EGMs
+- UGG sends: HTTP GET/POST requests to your endpoint
+- You provide: API URL, authentication credentials, response format documentation
+- Example: Your EGM has an API at https://egm-ip/api/meters that returns JSON
+
+**2. DATABASE**
+Your EGM writes data to a database that UGG reads from.
+- Best for: EGMs that log to SQL databases, legacy systems with database access
+- UGG does: Runs SQL queries at configured intervals
+- You provide: Database connection string, table schema, query templates
+
+**3. LOG**
+Your EGM writes events to log files that UGG watches and parses.
+- Best for: EGMs that generate text log files, syslog-based systems
+- UGG does: Tails log files, parses each line using your format rules
+- You provide: Log file path, line format (regex or delimiter-based)
+
+**4. SDK**
+Your EGM has a proprietary SDK that UGG wraps.
+- Best for: EGMs with manufacturer SDKs (DLLs, shared libraries, Python packages)
+- UGG does: Loads your SDK and calls its functions
+- You provide: SDK package, API documentation, initialization sequence
+
+**5. FILE**
+Your EGM generates batch files (CSV, XML, fixed-width) at regular intervals.
+- Best for: Batch-oriented systems, accounting exports, end-of-day reports
+- UGG does: Watches a directory for new files, parses and imports them
+- You provide: File format documentation, drop directory path, file naming convention
+
+**6. MESSAGE_BUS**
+Your EGM publishes events to a message broker (Kafka, AMQP, NATS).
+- Best for: Modern event-driven architectures, real-time streaming systems
+- UGG does: Subscribes to your topic and processes messages as they arrive
+- You provide: Broker URL, topic name, message format documentation"""},
+
+        {"id": "dev-build-connector", "title": "Step-by-Step: Building Your Connector", "content": """**Follow these steps to build a connector for your EGM:**
+
+**Step 1: Document your EGM's data**
+Write down every event and meter your EGM produces. For each one, note:
+- The event name in your system
+- The data fields included
+- The data types (numbers, strings, timestamps)
+- How often it occurs
+
+Example for a REST EGM:
+- Your event: "game_complete" with fields {game_id, bet_cents, win_cents, timestamp}
+- Maps to: "device.game.end" with payload {game_id, bet: bet_cents/100, win: win_cents/100}
+
+**Step 2: Use AI Studio for automatic discovery**
+1. Go to **AI Studio** in UGG
+2. Click the **Discovery** tab
+3. Select your source type (REST API, Database, etc.)
+4. Paste a sample of your data (a JSON response, a log line, a CSV row)
+5. Click **Run Discovery**
+6. The AI will automatically detect your fields and suggest canonical event mappings
+7. Review the suggestions — the AI shows a confidence percentage for each mapping
+
+**Step 3: Build the mapping in the Connector Builder**
+1. Go to **Connectors** in UGG
+2. Click the **+** button to create a new connector
+3. Give it a name (e.g., "MyBrand REST Connector") and select the type (REST, DB, etc.)
+4. Click your new connector to open the **Field Mapping** canvas
+5. **Drag fields** from the left (your source fields) onto the right (canonical fields)
+6. The center column shows your active mappings
+7. Click **Save** when done
+
+Example mappings:
+- your "game_id" → canonical "payload.game_id"
+- your "bet_cents" → canonical "payload.bet" (with transform: divide by 100)
+- your "win_cents" → canonical "payload.win" (with transform: divide by 100)
+- your "timestamp" → canonical "occurred_at"
+
+**Step 4: Create a manifest**
+In the Connector Builder right panel, click "Create Manifest" to save your mapping configuration. This manifest is what UGG uses to translate your data at runtime.
+
+**Step 5: Test with the Emulator Lab**
+See the next article for detailed testing instructions."""},
+
+        {"id": "dev-testing", "title": "Testing Your Connector", "content": """**UGG has a complete testing workbench built in. Use it before deploying to production.**
+
+**Test 1: SmartEGM Simulation**
+1. Go to **Emulator Lab** > **SmartEGM** tab
+2. Use the 12 Player Verb buttons to simulate player actions:
+   - Click "Insert Bill" to put money in
+   - Click "Push Play" to simulate a game
+   - Click "Cash Out" to print a voucher
+3. Watch the EGM State panel on the left — credits, coin in, coin out should update
+4. This verifies the basic game cycle works
+
+**Test 2: Run a Pre-Built Script**
+1. Go to **Emulator Lab** > **Script Runner** tab
+2. Select "Play Cycle Verify" from the Script Library
+3. Click **Run Script**
+4. The script automatically: inserts a $20 bill, plays 5 games, cashes out, and runs Balanced Meters Analysis
+5. All 16 steps should show green (passed)
+6. The Balanced Meters section shows 8 accounting tests (BM-01 through BM-08)
+
+**Test 3: Protocol Trace**
+1. Go to **Emulator Lab** > **Transcripts** tab
+2. You'll see every message exchanged between UGG and the EGM
+3. Click any row to expand and see the full XML with syntax highlighting
+4. Use the **Find** bar to search for specific commands or values
+
+**Test 4: Live G2S Connection (for G2S EGMs)**
+1. Go to **Emulator Lab** > **Live G2S** tab
+2. Enter your EGM's SOAP endpoint URL
+3. Click **Full Startup** to run the complete G2S handshake
+4. Send individual commands using the Command Builder
+5. Click **Export ZIP** to save the entire session for review
+
+**Test 5: Certification Suite**
+1. Go to **Certification** in the sidebar
+2. Select your test device
+3. Choose a certification tier (start with Bronze)
+4. Click **Run All Tests**
+5. Review results per G2S class in the accordion
+6. If you pass, you can generate a digitally signed certificate"""},
+
+        {"id": "dev-certification", "title": "Getting Certified", "content": """**UGG has 4 certification tiers. Here's what you need to pass each one:**
+
+**Bronze — Minimum for Route Deployment (6 classes, 44 tests, 80% pass rate)**
+Your EGM must correctly handle:
+- Cabinet events (power on/off, door open/close, tilt)
+- Communications (startup sequence, keepalive)
+- Event handling (subscribe, receive, acknowledge)
+- Game play (game start, game end with correct amounts)
+- Meters (all lifetime meters increment correctly, never decrease)
+- Handpay (large win detection, key-off procedure)
+
+**Silver — Casino Floor Deployment (10 classes, 85 tests, 90% pass rate)**
+Everything in Bronze plus:
+- Bonus (system-triggered bonus awards)
+- Command handling (remote enable/disable)
+- Download (software update capability)
+- GAT (Game Authentication Terminal — software verification)
+
+**Gold — Full Casino with Remote Config (12 classes, 112 tests, 95% pass rate)**
+Everything in Silver plus:
+- Note acceptor (bill validation, denomination tracking)
+- Option configuration (remote parameter changes)
+
+**Platinum — Highest Tier (14 classes, 131 tests, 98% pass rate)**
+Everything in Gold plus:
+- Progressive jackpots
+- Cashless (electronic funds transfer)
+
+**To get certified:**
+1. Go to **Certification** in the sidebar
+2. Select your device and tier
+3. Click **Run All Tests**
+4. Fix any failures and re-run
+5. When you pass, click **View Certificate** to get your digitally signed certificate
+6. The certificate has a public verification URL that anyone can check
+
+**After certification:**
+You can list your connector on the **Marketplace** for other operators to install. Go to Connectors > your connector > and your certification badge will be displayed."""},
+
+        {"id": "dev-ai-tools", "title": "Using AI to Speed Up Integration", "content": """**UGG's AI can dramatically speed up your integration work:**
+
+**AI Studio — Automatic Field Discovery**
+Instead of manually mapping every field, paste a sample of your EGM's data into AI Studio and let the AI figure out the mappings. It handles:
+- JSON REST API responses
+- Database query results
+- Log file lines
+- XML messages
+- CSV data files
+
+The AI recognizes common patterns like "bet_amount" → "payload.bet", "machine_id" → "device_id", "timestamp" → "occurred_at" and suggests mappings with confidence scores.
+
+**AI Studio — Connector Code Generation**
+1. Go to AI Studio > **Generate** tab
+2. Enter your connector name, type, and description
+3. Click **Generate Connector**
+4. The AI produces:
+   - A complete connector manifest
+   - Python code skeleton for your connector
+   - Suggested test scenarios for the Emulator Lab
+   - Deployment and configuration notes
+
+**AI Studio — Chat Assistant**
+Have questions about protocols, mapping, or testing? Just ask:
+- "How do I map a custom door event to the UGG canonical format?"
+- "What's the difference between SAS meter code 0000 and 0008?"
+- "How should I handle a progressive jackpot hit in my connector?"
+- "What does G2S class eventHandler do?"
+
+The AI knows the complete SAS 6.03, G2S 2.1.0, and UGG specifications."""},
+
+        {"id": "dev-publish", "title": "Publishing on the Marketplace", "content": """**Once your connector is certified, share it with other operators:**
+
+**Step 1: Prepare your listing**
+Gather:
+- Connector name and description (clear, non-technical)
+- Which EGM models it supports
+- Which protocols it uses
+- Screenshots or documentation
+- Pricing model (free, per-device, subscription, one-time)
+
+**Step 2: Your connector is already in the system**
+When you built and certified your connector in the Connector Builder, it's already registered in UGG. The certification badge appears automatically.
+
+**Step 3: Other operators find and install it**
+Operators browse the Marketplace, filter by category (e.g., "Vendor REST"), read your description and reviews, and click **Install Connector**.
+
+**Step 4: Reviews and ratings**
+After operators use your connector, they can rate it 1-5 stars and leave reviews. Your average rating updates automatically. Verified Install badges show when the reviewer actually installed your connector.
+
+**Step 5: Revenue sharing**
+For paid connectors, UGG handles billing automatically:
+- You keep **70%** of all revenue
+- UGG platform fee is **30%**
+- Billing runs monthly
+- Payments are processed via the EFT system
+
+**Tips for a successful marketplace listing:**
+- Write your description for non-technical operators, not engineers
+- Include the EGM model names operators will recognize
+- Start with a free tier to build installs and reviews
+- Respond to feedback and update your connector regularly"""},
+
+        {"id": "dev-content-lab", "title": "Using the Content Lab for Your EGM", "content": """**If your EGM uses SWF (Flash) game content, UGG can analyze it automatically:**
+
+**SWF Asset Analyzer**
+1. Go to **Content Lab** in the sidebar
+2. Click the **SWF Analyzer** tab
+3. Upload your EGM's SWF game file (or .crdownload file)
+4. UGG automatically:
+   - Decompresses the file (supports zlib-compressed CWS format)
+   - Extracts all ActionScript strings and identifiers
+   - Classifies content into categories: slot mechanics, bonus features, player tracking, financial events, system commands
+   - Suggests canonical event mappings for each identifier found
+   - Shows confidence percentages for each mapping
+
+**Binary Inspector**
+1. Click the **Binary Inspector** tab
+2. Upload any binary file (SWF, protocol dumps, firmware images)
+3. UGG shows a hex dump with offset, hex values, and ASCII representation
+4. Navigate with Prev/Next buttons to inspect different sections
+
+**Content Registry**
+1. After analyzing your SWF, click **Register to Content Registry**
+2. Enter the game title, manufacturer, and version
+3. UGG tracks which game content versions are deployed across the estate
+4. This helps with regulatory compliance — you can prove exactly what software is running on each machine
+
+**Why this matters:**
+Regulators require that all game software is approved and unmodified. UGG's Content Lab gives you and the regulator a complete chain of custody for game content, from the binary file all the way to the integrity check on the live machine."""},
+
+        {"id": "dev-device-template", "title": "Creating a Device Template XML", "content": """**A Device Template XML file defines your EGM's capabilities for the Emulator Lab:**
+
+**What goes in a Device Template:**
+- Manufacturer and model name
+- Software version and signature
+- Supported denominations (e.g., $0.01, $0.05, $0.25, $1.00)
+- G2S device classes your EGM supports
+- Game outcome probabilities (win levels and multipliers)
+- Unsupported event patterns (events your EGM won't generate)
+
+**Example template:**
+```xml
+<deviceTemplate version="1.0" manufacturer="YourBrand" model="GameKing-500" softwareVersion="2.1.0">
+  <metadata>
+    <serialNumber>SN-00001</serialNumber>
+    <softwareSignature>abc123def456</softwareSignature>
+    <g2sSchemaVersion>G2S_2.1.0</g2sSchemaVersion>
+  </metadata>
+  <denominations active="true">
+    <denom value="100"/>   <!-- $1.00 -->
+    <denom value="500"/>   <!-- $5.00 -->
+    <denom value="2500"/>  <!-- $25.00 -->
+  </denominations>
+  <devices>
+    <device class="G2S_cabinet" id="1" hostEnabled="true"/>
+    <device class="G2S_gamePlay" id="1" hostEnabled="true"/>
+    <device class="G2S_meters" id="1" hostEnabled="true"/>
+    <device class="G2S_noteAcceptor" id="1" hostEnabled="true"/>
+    <device class="G2S_voucher" id="1" hostEnabled="true"/>
+  </devices>
+  <gameOutcomes>
+    <winLevel id="0" name="NoWin" probability="0.70" multiplier="0"/>
+    <winLevel id="1" name="SmallWin" probability="0.20" multiplier="1.5"/>
+    <winLevel id="2" name="BigWin" probability="0.09" multiplier="25"/>
+    <winLevel id="3" name="Jackpot" probability="0.01" multiplier="250"/>
+  </gameOutcomes>
+</deviceTemplate>
+```
+
+**How to use it:**
+1. Go to **Emulator Lab** > **Templates** tab
+2. Paste your XML in the text area
+3. Click **Parse Template**
+4. UGG shows the parsed results: denominations, classes, win levels
+5. Load the template into a SmartEGM session to test with your exact configuration
+
+**This makes testing realistic** — instead of using generic settings, the Emulator Lab simulates YOUR exact EGM with YOUR denominations, YOUR supported classes, and YOUR win probability distribution."""},
+    ]},
 ]
 
 
