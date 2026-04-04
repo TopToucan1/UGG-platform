@@ -49,6 +49,7 @@ from routes.device_messages import router as device_messages_router
 from routes.pirs import router as pirs_router
 from routes.setup import router as setup_router
 from routes.gamification import router as gamification_router
+from routes.developer_sdk import router as developer_sdk_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -124,6 +125,7 @@ app.include_router(device_messages_router)
 app.include_router(pirs_router)
 app.include_router(setup_router)
 app.include_router(gamification_router)
+app.include_router(developer_sdk_router)
 
 
 @app.get("/api")
