@@ -17,25 +17,25 @@ export default function DocsLibraryPage() {
   const loadSection = async (sectionId) => {
     setActiveSection(sectionId);
     setActiveArticle(null);
-    const { data } = await api.get(`/docs/section/${sectionId}`);
+    const { data } = await api.get(`/library/section/${sectionId}`);
     setSectionDocs(data);
     if (data.docs?.length > 0) setActiveArticle(data.docs[0]);
   };
 
   const searchDocs = async () => {
     if (!search.trim()) { setSearchResults([]); return; }
-    const { data } = await api.get(`/docs/search?q=${encodeURIComponent(search)}`);
+    const { data } = await api.get(`/library/search?q=${encodeURIComponent(search)}`);
     setSearchResults(data.results || []);
   };
 
   const loadArticleFromSearch = async (docId) => {
-    const { data } = await api.get(`/docs/article/${docId}`);
+    const { data } = await api.get(`/library/article/${docId}`);
     setActiveArticle(data);
     setActiveSection(data.section_id);
     setSearchResults([]);
     setSearch('');
     // Also load the section
-    const secData = await api.get(`/docs/section/${data.section_id}`);
+    const secData = await api.get(`/library/section/${data.section_id}`);
     setSectionDocs(secData.data);
   };
 
