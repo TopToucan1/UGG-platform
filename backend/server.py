@@ -34,6 +34,7 @@ from routes.route_ops import router as route_ops_router
 from routes.route_advanced import router as route_advanced_router
 from routes.route_map import router as route_map_router
 from routes.certification import router as certification_router
+from routes.adapters import router as adapters_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ app.include_router(route_ops_router)
 app.include_router(route_advanced_router)
 app.include_router(route_map_router)
 app.include_router(certification_router)
+app.include_router(adapters_router)
 
 
 @app.get("/api")

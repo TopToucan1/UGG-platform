@@ -1,25 +1,47 @@
 # UGG - Universal Gaming Gateway | PRD
 
 ## Architecture
-- **Backend**: FastAPI + MongoDB — 26 route modules, 145+ API endpoints
-- **Frontend**: React 19 + Tailwind + Recharts + Leaflet + Framer Motion — 22 pages
-- **AI**: Gemini 3 Flash | **Auth**: JWT RBAC (7 roles + 4-tier route portal) | **Real-time**: WebSocket
+- **Backend**: FastAPI + MongoDB — 27 route modules, 150+ API endpoints, 4 protocol adapter packages
+- **Frontend**: React 19 + Tailwind + Recharts + Mapbox GL + Framer Motion — 22 pages
+- **Adapters**: SAS (pyserial), G2S (zeep/SOAP), S2S, Vendor Connector Framework (6 types)
+- **AI**: Gemini 3 Flash | **Auth**: JWT RBAC (7 roles + 4-tier) | **Real-time**: WebSocket
 
-## Phase 0 Foundation — Complete (All 8 Screens + All 8 Route Modules)
+## Phase 1 Protocol Adapters — Complete
 
-### 8 Phase 0 Screens (per Foundation Doc):
-1. Mission Control (Dashboard) — 5 KPI tiles, device health grid, live event feed, NOR chart, exceptions
-2. Device Fleet — Full table with filters, sorting, bulk actions, keyboard navigation
-3. Device Detail — Side panel with meters, events, integrity, commands
-4. Route Map (NEW) — Leaflet dark map, 85 venue markers across Nevada, health-coded, venue detail, estate summary
-5. Exceptions — 10 exception types, severity-coded, resolve workflow, real-time updates
-6. Analytics/NOR — Financial dashboard + NOR accounting + bill denomination breakdown + EFT status
-7. Emulator Lab — 6 scenarios, virtual devices, trace stream, assertions
-8. Certification Suite (NEW) — 14-class G2S test runner, Bronze/Silver/Gold/Platinum tiers, progress ring, class accordion, individual test results, PDF export
+### @ugg/sas-adapter (SAS — RS-232 Serial)
+- Full 38-meter SAS map with SAS_METER_BY_CODE lookup and ILT_ vendor extension detection
+- Poll-response engine with configurable cycle, per-device addressing (0x01-0x1F)
+- FaultInjector: MSX001-MSX099, SUPPRESS_RESPONSE, CORRUPT_RESPONSE with count/offset/repeat
+- Async poll loop with ConnectionState machine (CLOSED→OPENING→ONLINE→LOST→reconnect)
+- Raw hex trace emission for Protocol Trace viewer
+- Virtual mode for emulation when no physical serial port
 
-### All 8 Route Spec Modules: Offline Buffer, SAS Meter Map, Integrity, Statutory, NOR/EFT, Exceptions, RBAC, Performance
+### @ugg/g2s-adapter (G2S — SOAP/XML over HTTP)
+- 6 transport states: closed→opening→sync→online→closing→lost
+- CommsDisabledHandler: immediate commsDisabledAck + scheduled setCommsState enable=true
+- StartupAlgorithmEngine: fixed anchors + verbose mode (getDeviceStatus+setDeviceState per class) + step-through
+- CommandGroupExecutor: multiple commands from same class in one SOAP message
+- Proxy Certificate: G2S_egmProxy entity type in certificate OU field
+- KeepAlive: configurable interval, 3 missed → LOST state
+- Schema support: G2S 2.1.0 and 1.1.0
 
-### Additional: Command Center, Financial, Players, Jackpots, Marketplace, Content Lab, AI Studio, Regulatory, Export, Messages, Settings, VIP Alerts
+### @ugg/s2s-adapter (S2S — System-to-System)
+- Edge/Central topology: UGG Agent as Edge, CMS as Central
+- Negotiate handshake with schema versioning (S2S_1.2.6, S2S_1.3.1, S2S_1.5.0)
+- Periodic metric push to Central on configurable reportInterval
+- Central command translation: S2S→G2S routing to correct adapter
 
-## Testing: Backend 100%, Frontend 95%+
-## Total: 22 pages, 145+ endpoints, 26 backend modules, 20 sidebar nav items
+### @ugg/vendor-connector (Vendor Connector Framework)
+- 6 connector types: REST, DATABASE, LOG, SDK, FILE, MESSAGE_BUS
+- ConnectorManifest with EventMapping[] and configSchema validation
+- ConnectorFactory singleton with register/create pattern
+- RestConnector with HTTP polling + event mapping
+- 4 pre-registered manifests (REST Loyalty, DB Legacy CMS, Log Parser, Kafka Stream)
+
+### Emulator Lab UI Enhancement
+- Connector Status Panel: live adapter instances with connection state dots + protocol badges
+- 3-Tab Protocol Trace: G2S Messages | SOAP Transport | Protocol Trace (raw hex + ASCII)
+- Connect Adapter form: select protocol (SAS/G2S/S2S), device ID, connect/disconnect
+- Adapter Detail panel: poll counts, message counts, schema versions, edge IDs
+
+## Total: 22 pages, 150+ endpoints, 27 backend modules, 4 adapter packages
