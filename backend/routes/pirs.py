@@ -730,3 +730,318 @@ async def engine_status(request: Request):
         "total_rules": total_rules,
         "config": config,
     }
+
+
+# ══════════════════════════════════════════════════
+# PLAYER RTP TRACKING + COMPENSATION ENGINE
+# ══════════════════════════════════════════════════
+
+@router.get("/rtp/below-threshold")
+async def get_players_below_rtp(request: Request, threshold: float = 0.70, min_dollars_played: float = 100):
+    """Find players whose actual RTP is below the threshold — candidates for compensation."""
+    await get_current_user(request)
+    # Calculate actual RTP per player from session data
+    pipe = [
+        {"$match": {"status": "completed"}},
+        {"$group": {
+            "_id": "$player_id",
+            "player_name": {"$first": "$player_name"},
+            "total_wagered": {"$sum": "$total_wagered"},
+            "total_won": {"$sum": "$total_won"},
+            "sessions": {"$sum": 1},
+            "last_device": {"$last": "$device_ref"},
+            "last_session": {"$last": "$card_in_at"},
+        }},
+        {"$match": {"total_wagered": {"$gte": min_dollars_played * 100}}},
+    ]
+    player_stats = await db.player_sessions.aggregate(pipe).to_list(500)
+
+    below_threshold = []
+    for ps in player_stats:
+        wagered = ps.get("total_wagered", 0)
+        won = ps.get("total_won", 0)
+        if wagered <= 0:
+            continue
+        actual_rtp = won / wagered
+        if actual_rtp < threshold:
+            deficit_dollars = round((threshold * wagered - won) / 100, 2) if wagered > 100 else round(threshold * wagered - won, 2)
+            # Get PIRS profile
+            pirs = await db.pirs_players.find_one({"player_id": ps["_id"]}, {"_id": 0, "churn_score": 1, "tier_name": 1, "segment_label": 1, "lapse_risk": 1})
+            # Check if already has pending compensation
+            pending = await db.poc_wallet.find_one({"player_id": ps["_id"], "status": "PENDING", "trigger_type": "rtp_compensation"})
+
+            below_threshold.append({
+                "player_id": ps["_id"],
+                "player_name": ps.get("player_name", ""),
+                "total_wagered": round(wagered, 2),
+                "total_won": round(won, 2),
+                "actual_rtp": round(actual_rtp, 4),
+                "expected_rtp": threshold,
+                "rtp_gap": round(threshold - actual_rtp, 4),
+                "rtp_pct": round(actual_rtp * 100, 1),
+                "deficit_dollars": abs(deficit_dollars),
+                "sessions": ps.get("sessions", 0),
+                "last_device": ps.get("last_device"),
+                "last_session": ps.get("last_session"),
+                "churn_score": pirs.get("churn_score") if pirs else None,
+                "tier": pirs.get("tier_name") if pirs else None,
+                "lapse_risk": pirs.get("lapse_risk") if pirs else None,
+                "has_pending_compensation": pending is not None,
+                "suggested_poc": round(min(abs(deficit_dollars) * 0.10, 50), 2),
+            })
+
+    below_threshold.sort(key=lambda x: x["actual_rtp"])
+    return {
+        "players_below_rtp": below_threshold,
+        "total_found": len(below_threshold),
+        "threshold": threshold,
+        "min_dollars_played": min_dollars_played,
+        "avg_rtp_of_flagged": round(sum(p["actual_rtp"] for p in below_threshold) / len(below_threshold), 4) if below_threshold else 0,
+    }
+
+
+@router.get("/rtp/player/{player_id}")
+async def get_player_rtp_detail(request: Request, player_id: str):
+    """Detailed RTP analysis for a single player."""
+    await get_current_user(request)
+    sessions = await db.player_sessions.find({"player_id": player_id, "status": "completed"}, {"_id": 0}).sort("card_in_at", -1).to_list(100)
+    if not sessions:
+        return {"player_id": player_id, "sessions": 0, "actual_rtp": None, "message": "No completed sessions"}
+
+    total_wagered = sum(s.get("total_wagered", 0) for s in sessions)
+    total_won = sum(s.get("total_won", 0) for s in sessions)
+    actual_rtp = total_won / total_wagered if total_wagered > 0 else 0
+
+    # Per-session RTP breakdown
+    session_rtps = []
+    for s in sessions[:20]:
+        sw = s.get("total_wagered", 0)
+        swin = s.get("total_won", 0)
+        session_rtps.append({
+            "date": s.get("card_in_at", "")[:10],
+            "wagered": round(sw, 2), "won": round(swin, 2),
+            "rtp": round(swin / sw, 4) if sw > 0 else 0,
+            "net": round(swin - sw, 2),
+            "device": s.get("device_ref"),
+            "duration_min": s.get("duration_minutes"),
+        })
+
+    # Rolling RTP over time
+    running_w = 0
+    running_won = 0
+    rolling = []
+    for s in reversed(sessions[:50]):
+        running_w += s.get("total_wagered", 0)
+        running_won += s.get("total_won", 0)
+        if running_w > 0:
+            rolling.append({"session": len(rolling) + 1, "rolling_rtp": round(running_won / running_w, 4)})
+
+    # Wallet balance
+    wallet = await db.poc_wallet.find({"player_id": player_id, "status": "PENDING"}, {"_id": 0}).to_list(10)
+    pending_poc = sum(w.get("amount", 0) for w in wallet)
+
+    return {
+        "player_id": player_id,
+        "total_sessions": len(sessions),
+        "total_wagered": round(total_wagered, 2),
+        "total_won": round(total_won, 2),
+        "actual_rtp": round(actual_rtp, 4),
+        "actual_rtp_pct": round(actual_rtp * 100, 1),
+        "net_result": round(total_won - total_wagered, 2),
+        "session_breakdown": session_rtps,
+        "rolling_rtp": rolling,
+        "pending_poc_balance": pending_poc,
+        "pending_poc_items": wallet,
+    }
+
+
+# ══════════════════════════════════════════════════
+# POC WALLET — Account-level pending credits
+# ══════════════════════════════════════════════════
+
+@router.post("/wallet/credit")
+async def credit_player_wallet(request: Request):
+    """
+    Operator sends POC to a player's WALLET — not a specific EGM.
+    POC sits waiting until the player's next card-in, then auto-delivers to that EGM.
+    """
+    user = await get_current_user(request)
+    body = await request.json()
+    player_id = body.get("player_id")
+    amount = body.get("amount", 10)
+    reason = body.get("reason", "operator_manual")
+    message = body.get("message", f"You have ${amount:.2f} in Play Only Credits waiting! Card in to receive them.")
+    expires_days = body.get("expires_days", 30)
+
+    player = await db.pirs_players.find_one({"player_id": player_id}, {"_id": 0})
+    if not player:
+        raise HTTPException(status_code=400, detail="Player not found in PIRS")
+
+    now = datetime.now(timezone.utc)
+    wallet_entry = {
+        "id": str(uuid.uuid4()),
+        "player_id": player_id,
+        "player_name": player.get("player_name", ""),
+        "amount": amount,
+        "reason": reason,
+        "trigger_type": body.get("trigger_type", "operator_manual"),
+        "message": message,
+        "status": "PENDING",  # PENDING → DELIVERED → PLAYED → EXPIRED
+        "expires_at": (now + timedelta(days=expires_days)).isoformat(),
+        "credited_by": user.get("email"),
+        "credited_at": now.isoformat(),
+        "delivered_at": None,
+        "delivered_to_egm": None,
+    }
+    await db.poc_wallet.insert_one(wallet_entry)
+    wallet_entry.pop("_id", None)
+
+    # Update player record
+    await db.pirs_players.update_one(
+        {"player_id": player_id},
+        {"$inc": {"wallet_pending_poc": amount}},
+    )
+
+    return wallet_entry
+
+
+@router.post("/wallet/compensate-rtp")
+async def compensate_low_rtp(request: Request):
+    """Operator sends RTP-compensation POC to flagged players' wallets."""
+    user = await get_current_user(request)
+    body = await request.json()
+    player_id = body.get("player_id")
+    amount = body.get("amount")  # operator decides the amount
+    auto_amount = body.get("auto_calculate", False)
+
+    player = await db.pirs_players.find_one({"player_id": player_id}, {"_id": 0})
+    if not player:
+        raise HTTPException(status_code=400, detail="Player not found")
+
+    # If auto-calculate, compute 10% of RTP deficit
+    if auto_amount or not amount:
+        sessions = await db.player_sessions.find({"player_id": player_id, "status": "completed"}, {"_id": 0}).to_list(200)
+        total_w = sum(s.get("total_wagered", 0) for s in sessions)
+        total_won = sum(s.get("total_won", 0) for s in sessions)
+        actual_rtp = total_won / total_w if total_w > 0 else 0
+        deficit = (0.70 * total_w) - total_won
+        amount = round(min(max(deficit * 0.10, 5), 100), 2) if deficit > 0 else 10
+
+    now = datetime.now(timezone.utc)
+    wallet_entry = {
+        "id": str(uuid.uuid4()),
+        "player_id": player_id,
+        "player_name": player.get("player_name", ""),
+        "amount": amount,
+        "reason": "rtp_compensation",
+        "trigger_type": "rtp_compensation",
+        "message": f"We appreciate your loyalty! You have ${amount:.2f} in bonus credits waiting for your next visit.",
+        "status": "PENDING",
+        "expires_at": (now + timedelta(days=30)).isoformat(),
+        "credited_by": user.get("email"),
+        "credited_at": now.isoformat(),
+        "delivered_at": None,
+        "delivered_to_egm": None,
+        "rtp_data": {"calculated": auto_amount or not body.get("amount")},
+    }
+    await db.poc_wallet.insert_one(wallet_entry)
+    wallet_entry.pop("_id", None)
+    await db.pirs_players.update_one({"player_id": player_id}, {"$inc": {"wallet_pending_poc": amount}})
+    return wallet_entry
+
+
+@router.get("/wallet/{player_id}")
+async def get_player_wallet(request: Request, player_id: str):
+    """Get a player's pending POC wallet balance."""
+    await get_current_user(request)
+    entries = await db.poc_wallet.find({"player_id": player_id}, {"_id": 0}).sort("credited_at", -1).to_list(50)
+    pending = [e for e in entries if e["status"] == "PENDING"]
+    total_pending = sum(e.get("amount", 0) for e in pending)
+    return {"player_id": player_id, "pending_balance": total_pending, "pending_items": pending, "all_entries": entries}
+
+
+@router.post("/wallet/deliver-on-cardin")
+async def deliver_wallet_on_cardin(request: Request):
+    """
+    Called when a player cards in at an EGM.
+    Checks for pending wallet POC and delivers to that EGM.
+    This would be triggered by the card_in event in the Gateway Core pipeline.
+    """
+    body = await request.json()
+    player_id = body.get("player_id")
+    egm_id = body.get("egm_id")
+
+    if not player_id or not egm_id:
+        raise HTTPException(status_code=400, detail="player_id and egm_id required")
+
+    now = datetime.now(timezone.utc)
+    # Find all pending wallet entries that haven't expired
+    pending = await db.poc_wallet.find({
+        "player_id": player_id, "status": "PENDING",
+        "expires_at": {"$gte": now.isoformat()},
+    }, {"_id": 0}).to_list(20)
+
+    if not pending:
+        return {"delivered": 0, "message": "No pending POC for this player"}
+
+    total_delivered = 0
+    delivered_ids = []
+    messages = []
+
+    for entry in pending:
+        amt = entry.get("amount", 0)
+        await db.poc_wallet.update_one({"id": entry["id"]}, {"$set": {
+            "status": "DELIVERED",
+            "delivered_at": now.isoformat(),
+            "delivered_to_egm": egm_id,
+        }})
+        total_delivered += amt
+        delivered_ids.append(entry["id"])
+        messages.append(entry.get("message", f"${amt:.2f} bonus credits loaded!"))
+
+    # Push combined message to EGM
+    combined_msg = f"Welcome back! ${total_delivered:.2f} in bonus credits have been loaded to your machine!"
+    await db.device_messages.insert_one({
+        "id": str(uuid.uuid4()), "device_id": egm_id,
+        "message_text": combined_msg, "message_type": "PROMO",
+        "display_duration_seconds": 20, "display_position": "CENTER",
+        "background_color": "#FFD700", "text_color": "#070B14",
+        "priority": "HIGH",
+        "expires_at": (now + timedelta(minutes=5)).isoformat(),
+        "sent_by": "PIRS_WALLET", "sent_at": now.isoformat(), "status": "PENDING",
+    })
+
+    # Create POC award record
+    await db.poc_awards.insert_one({
+        "id": str(uuid.uuid4()), "player_id": player_id,
+        "player_name": "", "egm_id": egm_id,
+        "trigger_type": "wallet_delivery_on_cardin",
+        "poc_amount": total_delivered, "poc_type": "play_only_credits",
+        "delivery_status": "delivered",
+        "delivered_at": now.isoformat(), "awarded_by": "PIRS_WALLET",
+        "created_at": now.isoformat(),
+        "wallet_entry_ids": delivered_ids,
+    })
+
+    # Update player pending balance
+    await db.pirs_players.update_one({"player_id": player_id}, {"$inc": {"wallet_pending_poc": -total_delivered, "total_poc_awarded": total_delivered}})
+
+    return {
+        "delivered": total_delivered,
+        "items_delivered": len(delivered_ids),
+        "egm_id": egm_id,
+        "player_id": player_id,
+        "message_sent": combined_msg,
+    }
+
+
+@router.post("/wallet/expire-old")
+async def expire_old_wallet_entries(request: Request):
+    """Housekeeping — expire wallet entries past their expiry date."""
+    await get_current_user(request)
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.poc_wallet.update_many(
+        {"status": "PENDING", "expires_at": {"$lt": now}},
+        {"$set": {"status": "EXPIRED"}},
+    )
+    return {"expired": result.modified_count}
