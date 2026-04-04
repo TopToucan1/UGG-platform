@@ -47,6 +47,7 @@ from routes.security import router as security_router
 from routes.portal import router as portal_router
 from routes.device_messages import router as device_messages_router
 from routes.pirs import router as pirs_router
+from routes.setup import router as setup_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -120,6 +121,7 @@ app.include_router(security_router)
 app.include_router(portal_router)
 app.include_router(device_messages_router)
 app.include_router(pirs_router)
+app.include_router(setup_router)
 
 
 @app.get("/api")
@@ -130,28 +132,60 @@ async def root():
 @app.on_event("startup")
 async def startup():
     logger.info("Starting UGG Platform...")
-    await seed_admin()
-    await seed_all()
-    await seed_financial_and_players()
-    from seed_marketplace import seed_marketplace_and_jackpots
-    await seed_marketplace_and_jackpots()
-    from seed_route import seed_route_module
-    await seed_route_module()
-    # Start real-time event generator
-    from routes.events import start_event_generator
-    start_event_generator()
-    # Start Gateway Core event pipeline
-    from gateway_core import gateway_core
-    await gateway_core.start()
-    from routes.hardware import seed_library
-    await seed_library()
-    from routes.route_v2 import seed_route_v2
-    await seed_route_v2()
-    from routes.portal import seed_portal
-    await seed_portal()
-    from routes.pirs import seed_pirs
-    await seed_pirs()
-    logger.info("UGG Platform ready — real-time event generator + Gateway Core active")
+    seed_mode = os.environ.get("SEED_MODE", "demo")
+    logger.info(f"SEED_MODE: {seed_mode}")
+
+    if seed_mode == "production":
+        # Production mode — only create admin if ADMIN_EMAIL is set and no admin exists
+        admin_email = os.environ.get("ADMIN_EMAIL")
+        if admin_email:
+            existing = await db.users.find_one({"email": admin_email})
+            if not existing:
+                admin_password = os.environ.get("ADMIN_PASSWORD", "")
+                if admin_password:
+                    await seed_admin()
+                    logger.info(f"Production admin created: {admin_email}")
+                else:
+                    logger.info("No ADMIN_PASSWORD set — use /api/setup/initialize for first-run setup")
+            else:
+                logger.info(f"Admin exists: {admin_email}")
+        else:
+            logger.info("Production mode — no ADMIN_EMAIL set. Use /api/setup/initialize for first-run setup")
+
+        # Create indexes only
+        await db.users.create_index("email", unique=True)
+        await db.events.create_index([("occurred_at", -1)])
+        await db.devices.create_index("id")
+
+        # Start Gateway Core pipeline (needed for real devices)
+        from gateway_core import gateway_core
+        await gateway_core.start()
+        logger.info("UGG Platform ready — PRODUCTION MODE (no demo data)")
+
+    else:
+        # Demo mode — load all seed data
+        await seed_admin()
+        await seed_all()
+        await seed_financial_and_players()
+        from seed_marketplace import seed_marketplace_and_jackpots
+        await seed_marketplace_and_jackpots()
+        from seed_route import seed_route_module
+        await seed_route_module()
+        # Start real-time event generator (demo only)
+        from routes.events import start_event_generator
+        start_event_generator()
+        # Start Gateway Core event pipeline
+        from gateway_core import gateway_core
+        await gateway_core.start()
+        from routes.hardware import seed_library
+        await seed_library()
+        from routes.route_v2 import seed_route_v2
+        await seed_route_v2()
+        from routes.portal import seed_portal
+        await seed_portal()
+        from routes.pirs import seed_pirs
+        await seed_pirs()
+        logger.info("UGG Platform ready — DEMO MODE (seed data loaded, event generator active)")
 
 
 @app.on_event("shutdown")

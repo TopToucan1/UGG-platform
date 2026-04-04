@@ -1522,6 +1522,149 @@ These are REQUIRED by most state gaming regulators. Your game MUST be able to di
 5. Your game should show the message within 30 seconds (on its next poll)"""},
     ]},
 
+    {"id": "going-live", "title": "Going Live (Production)", "icon": "Rocket", "docs": [
+        {"id": "live-overview", "title": "Launching UGG for Real Operations", "content": """**Ready to go from demo mode to live production? Here's everything you need to know.**
+
+UGG has two modes:
+- **Demo Mode** — What you've been using. Filled with sample data (85 fake devices, fake NOR data, test players). Perfect for learning the system.
+- **Production Mode** — A clean, empty database. You add real distributors, real venues, and connect real EGMs.
+
+**You do NOT lose anything by switching.** Production mode starts fresh — your demo data stays until you explicitly clear it.
+
+**The transition takes about 30 minutes following this guide.**"""},
+
+        {"id": "live-step1-clean", "title": "Step 1: Clear Demo Data", "content": """**Before going live, clear out all the fake data:**
+
+1. Log in as admin
+2. The system has a reset function that clears all demo data while keeping your admin account
+3. After reset, the system is completely empty — no fake devices, no fake money, no test players
+
+**What gets cleared:**
+- All 85 demo devices and their events
+- All fake financial transactions
+- All demo NOR data
+- All test players and PIRS data
+- All demo alerts and exceptions
+- All demo marketplace data
+
+**What is preserved:**
+- Your admin account (you stay logged in)
+- Your PIRS configuration settings (if you've customized them)
+- System settings
+
+**Important:** This cannot be undone! Make sure you're ready before clearing. You can always reload demo data later if you want to show someone how the system works."""},
+
+        {"id": "live-step2-company", "title": "Step 2: Set Up Your Company", "content": """**Now add your real business information:**
+
+1. Go to **Settings** in the sidebar
+2. In the **Tenants** tab, your company should already be listed (if you set it up during initialization)
+3. If not, your administrator will create your tenant with:
+   - Company name
+   - Timezone
+   - Currency
+
+4. In the **Sites** tab, add your real locations:
+   - Site name (e.g., "Starlight Las Vegas Main Floor")
+   - Address
+   - Timezone
+
+5. Go to **Route Operations** > **RBAC Portal** tab to create user accounts:
+   - Your distributor admin accounts
+   - Your retailer/venue viewer accounts
+   - Your manufacturer viewer accounts (if applicable)
+
+**Each person gets their own login** with permissions matching their role. A retailer can only see their own venue's data."""},
+
+        {"id": "live-step3-devices", "title": "Step 3: Connect Your Real EGMs", "content": """**Now the exciting part — connecting real machines!**
+
+**For SAS machines (older, serial cable):**
+1. Make sure the UGG Agent box is installed at each venue (see Hardware > Setting Up a UGG Agent)
+2. Connect the RS-232 serial cable from the EGM to the agent
+3. The machine should appear in Device Fleet within 2-3 minutes
+4. Verify the machine's status shows green (online)
+5. Click the machine to verify manufacturer, model, and serial are correct
+
+**For G2S machines (newer, network):**
+1. Ensure the machine is on the same network as the UGG Agent
+2. Go to Emulator Lab > Live G2S tab
+3. Enter the machine's SOAP endpoint URL
+4. Click Connect — watch the startup sequence complete
+5. The machine appears in Device Fleet
+
+**For indie/NoCode EGMs:**
+Follow the Indie Developer Guide in the Documentation. Your game sends HTTP POST requests to UGG's API.
+
+**Add machines one at a time.** Verify each one works before connecting the next. This makes troubleshooting much easier.
+
+**After all machines are connected:**
+- Go to Mission Control — you should see your real device count
+- Check the Route Map — your real venues should appear at their actual locations
+- Verify Route Operations > Overview shows your real NOR data (it will start at $0 and grow as players play)"""},
+
+        {"id": "live-step4-pirs", "title": "Step 4: Configure PIRS for Real Players", "content": """**Set up your reward system before real players start using loyalty cards:**
+
+1. Go to **PIRS Rewards** > **Settings** tab
+2. Set your real budgets:
+   - Start conservative: **$100-$200 daily** until you see ROI data
+   - Per player daily: **$25-$50**
+   - Per player session: **$15-$25**
+3. Review the default bonus rules in the **Bonus Rules** tab:
+   - Turn OFF any rules you don't want active yet
+   - Edit POC amounts to match your budget ($5-$10 for starters)
+   - Enable the Welcome Bonus (card_in rule) with $5-$10 for new players
+4. Turn ON the auto-engine: Settings > Auto-run reward rules = ON
+5. Set auto-scale: ON (so churn scores adjust as players grow)
+
+**Start with just 2-3 rules active:**
+- Welcome Bonus ($5 on card-in for score 60+)
+- Session Length ($10 at 45 minutes for score 65+)
+- Lapse Prevention ($15 for lapse risk 70+)
+
+**After 1-2 weeks:**
+Check Business Impact tab. If ROI is above 8:1, start enabling more rules and increasing amounts. If below 5:1, tighten the churn score requirements (raise minimum from 60 to 70)."""},
+
+        {"id": "live-step5-verify", "title": "Step 5: Verify Everything Works", "content": """**Before you walk away, verify these 10 things:**
+
+1. **Mission Control loads** with your real device count and zero alerts (or only real ones)
+2. **All EGMs show green** in Device Fleet — click each one to verify status
+3. **Route Map shows your real venues** at correct geographic locations
+4. **NOR starts tracking** — play a few games on a test machine, then check Route Operations > NOR. You should see small amounts within minutes
+5. **Alerts work** — Open a machine door, verify DOOR_OPEN alert appears within 30 seconds
+6. **PIRS is running** — Insert a loyalty card, verify the player appears in PIRS Rewards
+7. **Messages work** — Go to Messages, create a test campaign targeting one machine, verify the message appears on screen
+8. **Export works** — Go to Export, download a Devices CSV, verify your real machines are listed
+9. **Other users can log in** — Have your distributor admin log in and verify they see only their route
+10. **Documentation is accessible** — Click Documentation in the sidebar, verify all guides load
+
+**If everything checks out — congratulations! Your UGG system is live!**
+
+**First week routine:**
+- Check Mission Control 3x daily (morning, midday, evening)
+- Handle any alerts within 1 hour for critical, 24 hours for warnings
+- Review PIRS Business Impact every 2-3 days
+- Run your first EFT at the end of the week
+- Export your first NOR report for your records"""},
+
+        {"id": "live-switching-modes", "title": "Switching Between Demo and Production", "content": """**You can switch between demo data and production at any time.**
+
+**To load demo data (for training or demonstrations):**
+An admin can trigger demo data loading. This adds the 85 sample devices, fake NOR data, and test players alongside any real data you have.
+
+**Warning:** Only do this on a separate demo instance, NOT on your production system. Mixing demo and real data makes reports inaccurate.
+
+**To go back to clean production:**
+The reset function clears everything except your admin account. Then reconnect your real devices.
+
+**Best practice:**
+Keep two UGG instances:
+1. **Production** — Your live system with real data. SEED_MODE=production
+2. **Demo/Training** — A separate instance with sample data for training new staff. SEED_MODE=demo
+
+Your deployment team can set the SEED_MODE in the environment configuration:
+- SEED_MODE=demo — Loads sample data on startup (default)
+- SEED_MODE=production — Starts clean, no demo data, first-run setup wizard"""},
+    ]},
+
     {"id": "pirs-rewards", "title": "PIRS Player Rewards", "icon": "Crown", "docs": [
         {"id": "pirs-what-is", "title": "What is PIRS?", "content": """**PIRS (Players Intelligence Rewards System) is your secret weapon for keeping players coming back.**
 
