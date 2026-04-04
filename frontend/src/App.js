@@ -23,6 +23,10 @@ import RegulatoryDashboardPage from '@/pages/RegulatoryDashboardPage';
 import RouteMapPage from '@/pages/RouteMapPage';
 import CertificationPage from '@/pages/CertificationPage';
 import DigitalTwinPage from '@/pages/DigitalTwinPage';
+import AnalyzerPage from '@/pages/AnalyzerPage';
+import ProxyControlPage from '@/pages/ProxyControlPage';
+import FleetDashboardPage from '@/pages/FleetDashboardPage';
+import ComplianceBrowserPage from '@/pages/ComplianceBrowserPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -81,6 +85,10 @@ function AppRoutes() {
       <Route path="/map" element={<ProtectedRoute><RouteMapPage /></ProtectedRoute>} />
       <Route path="/certification" element={<ProtectedRoute><CertificationPage /></ProtectedRoute>} />
       <Route path="/digital-twin" element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
+      <Route path="/analyzer" element={<ProtectedRoute><AnalyzerPage /></ProtectedRoute>} />
+      <Route path="/proxy" element={<ProtectedRoute><ProxyControlPage /></ProtectedRoute>} />
+      <Route path="/fleet" element={<ProtectedRoute><FleetDashboardPage /></ProtectedRoute>} />
+      <Route path="/compliance" element={<ProtectedRoute><ComplianceBrowserPage /></ProtectedRoute>} />
       <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
