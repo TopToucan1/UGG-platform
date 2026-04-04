@@ -12,7 +12,7 @@ export default function DocsLibraryPage() {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
-  useEffect(() => { api.get('/docs').then(r => setSections(r.data.sections || [])); }, []);
+  useEffect(() => { api.get('/library').then(r => setSections(r.data.sections || [])); }, []);
 
   const loadSection = async (sectionId) => {
     setActiveSection(sectionId);
