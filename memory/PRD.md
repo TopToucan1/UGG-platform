@@ -1,17 +1,22 @@
 # UGG - Universal Gaming Gateway | PRD — FINAL
 
 ## Architecture
-- **Backend**: FastAPI + MongoDB — 34 route modules, 260+ API endpoints
+- **Backend**: FastAPI + MongoDB — 35 route modules, 275+ API endpoints
 - **Gateway Core**: 8-stage pipeline | **Adapters**: SAS/G2S/S2S/VCF
 - **Frontend**: React 19 + Tailwind + Recharts + Mapbox GL + Framer Motion — 30 pages
 - **AI**: Gemini 3 Flash | **Auth**: JWT RBAC (7+4 tier) | **Real-time**: WebSocket
 
-## ALL PHASES COMPLETE (0-7) — 30 Pages, 28 Nav Items
+## ALL PHASES COMPLETE (0-7) + Route Module Gaps Closed
 
-### Pages: Mission Control, Command Center, Device Fleet, Route Map, Route Operations (9 tabs), Regulatory, Financial, Player Sessions, Jackpots, Connectors, Marketplace, Content Lab, AI Studio, Emulator Lab (7 tabs), Analyzer, Proxy Mode, Fleet Simulator, Certification, Compliance Reference, AI Analytics, Digital Twin, Audit Explorer, Exceptions, Messages, Export, Hardware (tests + library), Documentation (22 articles), Settings
+### Route Module v2 Gaps (Closed):
+- NOR Split Engine: 4-way split (Distributor + Operator + Retailer + State) with BigInt-precision math, retailer absorbs rounding, checksum validation
+- Operator Entity: 6 operators (2 per distributor) with license numbers, revenue shares, expiry dates
+- Revenue Shares: Per-device shares (dist/op/ret must sum to 1.0 ± 0.0001), DB constraint validated
+- Statutory Periods: OPEN → CLOSED → SUBMITTED → ACCEPTED lifecycle with NOR totals, close/submit endpoints
+- License Expiry: Tracking for distributors and operators with configurable days-to-expiry alerting
+- New Exception Types: REVENUE_ANOMALY (NOR < 40% of 90-day avg), MAX_TERMINALS_EXCEEDED, EXCESSIVE_GAMEPLAY (>4hr sessions)
+- NSF Handler: Automated processing — create CRITICAL exception, flag EFT entries, hold future payments
+- Device Compliance: Per-device integrity history, exception count, NOR summary, twin state, revenue shares
+- Route Map: 85 venues verified working with Mapbox GL, health-coded markers, $261K NOR, 85.9% online
 
-### Phase 6 Hardware: 18 integration tests (5 categories), Firmware/Config Library (8 packages), Provisioning Package Generator (ZIP with certs + config), Download tracking
-### Phase 7 AI Analytics: Predictive Maintenance, NOR Forecasting, Exception Pattern Analysis, Natural Language Query — all Gemini-powered
-### Documentation Library: 7 sections, 22 articles covering every feature with full text search
-
-## Total: 30 pages, 260+ endpoints, 34 backend modules, 28 sidebar nav items
+## Total: 30 pages, 275+ endpoints, 35 backend modules
