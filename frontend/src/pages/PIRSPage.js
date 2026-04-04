@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
-import { Crown, Users, CurrencyDollar, Lightning, Gauge, Warning, Trophy, PaperPlaneTilt, Sparkle, Star, CaretRight, Check } from '@phosphor-icons/react';
+import { Crown, Users, CurrencyDollar, Lightning, Gauge, Warning, Trophy, PaperPlaneTilt, Sparkle, Star, CaretRight, Check, GearSix, Plus, Pencil, Trash } from '@phosphor-icons/react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const SEG_C = { elite_churner: '#FFD700', high_churner: '#00D97E', mid_churner: '#00B4D8', developing: '#8B5CF6', casual: '#4A6080', low_value: '#2A3550' };
@@ -23,16 +23,66 @@ export default function PIRSPage() {
   const [rules, setRules] = useState([]);
   const [roi, setRoi] = useState(null);
   const [pocAmount, setPocAmount] = useState(10);
+  const [config, setConfig] = useState(null);
+  const [rtpPlayers, setRtpPlayers] = useState([]);
+  const [engineStatus, setEngineStatus] = useState(null);
+  const [showNewRule, setShowNewRule] = useState(false);
+  const [editRule, setEditRule] = useState(null);
+  const [newRule, setNewRule] = useState({ name: '', trigger: 'coin_in_milestone', poc_fixed: 10, condition_churn_min: 50, max_per_day: 1, cooldown_min: 60, condition_time_window: 'always', message_template: 'You earned ${amount} in bonus credits!' });
 
   const fetchData = useCallback(async () => {
-    const [dRes, pRes, rRes, roiRes] = await Promise.all([
+    const [dRes, pRes, rRes, roiRes, cRes, eRes] = await Promise.all([
       api.get('/pirs/dashboard'), api.get('/pirs/leaderboard'),
       api.get('/pirs/rules'), api.get('/pirs/analytics/roi'),
+      api.get('/pirs/config'), api.get('/pirs/engine/status'),
     ]);
     setDashboard(dRes.data); setPlayers(pRes.data.leaderboard || []);
     setRules(rRes.data.rules || []); setRoi(roiRes.data);
+    setConfig(cRes.data); setEngineStatus(eRes.data);
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const fetchRtpPlayers = async () => {
+    const { data } = await api.get('/pirs/rtp/below-threshold?threshold=0.70&min_dollars_played=50');
+    setRtpPlayers(data.players_below_rtp || []);
+  };
+
+  const updateConfig = async (updates) => {
+    await api.post('/pirs/config', updates);
+    const { data } = await api.get('/pirs/config');
+    setConfig(data);
+  };
+
+  const createRule = async () => {
+    await api.post('/pirs/rules/create', newRule);
+    setShowNewRule(false); setNewRule({ name: '', trigger: 'coin_in_milestone', poc_fixed: 10, condition_churn_min: 50, max_per_day: 1, cooldown_min: 60, condition_time_window: 'always', message_template: 'You earned ${amount} in bonus credits!' });
+    fetchData();
+  };
+
+  const updateRule = async (ruleId, updates) => {
+    await api.put(`/pirs/rules/${ruleId}`, updates);
+    setEditRule(null); fetchData();
+  };
+
+  const deleteRule = async (ruleId) => {
+    await api.delete(`/pirs/rules/${ruleId}`);
+    fetchData();
+  };
+
+  const runEngine = async () => {
+    await api.post('/pirs/engine/run');
+    fetchData();
+  };
+
+  const sendWalletPoc = async (playerId, amount) => {
+    await api.post('/pirs/wallet/credit', { player_id: playerId, amount, reason: 'operator_manual' });
+    fetchData();
+  };
+
+  const compensateRtp = async (playerId, autoCalc = true) => {
+    await api.post('/pirs/wallet/compensate-rtp', { player_id: playerId, auto_calculate: autoCalc });
+    fetchRtpPlayers();
+  };
 
   const selectPlayer = async (p) => { setSelected(p); const { data } = await api.get(`/pirs/players/${p.player_id}`); setDetail(data); };
   const awardPoc = async () => { if (!selected) return; await api.post('/pirs/poc/award', { player_id: selected.player_id, amount: pocAmount, trigger_type: 'campaign_manual' }); fetchData(); selectPlayer(selected); };
@@ -40,7 +90,7 @@ export default function PIRSPage() {
 
   const d = dashboard;
   const fmt = v => v != null ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '--';
-  const tabs = [{ id: 'overview', label: 'Fleet Overview' }, { id: 'players', label: 'Player Intelligence' }, { id: 'rules', label: 'Bonus Rules' }, { id: 'roi', label: 'Business Impact' }];
+  const tabs = [{ id: 'overview', label: 'Fleet Overview' }, { id: 'players', label: 'Player Intel' }, { id: 'rules', label: 'Bonus Rules' }, { id: 'rtp', label: 'RTP Compensation' }, { id: 'roi', label: 'Business Impact' }, { id: 'config', label: 'Settings' }];
 
   return (
     <div data-testid="pirs-dashboard" className="flex gap-0 h-full -m-6">
@@ -204,21 +254,99 @@ export default function PIRSPage() {
             </div>
           )}
 
-          {/* BONUS RULES */}
+          {/* BONUS RULES — Full CRUD */}
           {activeTab === 'rules' && (
-            <div className="space-y-2">
-              {rules.map(r => (
-                <div key={r.id} className="rounded-lg border p-4 flex items-center gap-4" style={{ background: '#0C1322', borderColor: r.is_active ? '#00D97E30' : '#1A2540' }}>
-                  <button onClick={() => toggleRule(r.id)} className="w-10 h-5 rounded-full flex items-center transition-colors" style={{ background: r.is_active ? '#00D97E' : '#1A2540', justifyContent: r.is_active ? 'flex-end' : 'flex-start', padding: '2px' }}>
-                    <span className="w-4 h-4 rounded-full" style={{ background: '#F0F4FF' }} />
-                  </button>
-                  <div className="flex-1">
-                    <div className="text-xs font-semibold" style={{ color: '#F0F4FF' }}>{r.name}</div>
-                    <div className="text-[10px] font-mono" style={{ color: '#4A6080' }}>Trigger: {r.trigger} | Churn min: {r.condition_churn_min || 'any'} | POC: ${r.poc_fixed} | Max/day: {r.max_per_day || r.max_per_session || '∞'}</div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono" style={{ color: '#4A6080' }}>{rules.length} rules ({rules.filter(r => r.is_active).length} active)</span>
+                  <button onClick={runEngine} className="flex items-center gap-1 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#00D97E', color: '#070B14' }}><Lightning size={12} /> Run Engine Now</button>
+                </div>
+                <button onClick={() => setShowNewRule(true)} className="flex items-center gap-1 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FFD700', color: '#070B14' }}><Plus size={12} /> Create Rule</button>
+              </div>
+              {/* New Rule Form */}
+              {showNewRule && (
+                <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#FFD70040' }}>
+                  <h4 className="text-sm font-semibold" style={{ color: '#F0F4FF' }}>Create New Reward Rule</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Rule Name</label><input value={newRule.name} onChange={e => setNewRule(p => ({ ...p, name: e.target.value }))} placeholder="Weekend Bonus" className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Trigger</label><select value={newRule.trigger} onChange={e => setNewRule(p => ({ ...p, trigger: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['card_in', 'coin_in_milestone', 'session_duration', 'post_win_playback', 'lapse_risk', 'return_visit', 'churn_threshold'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>POC Amount ($)</label><input type="number" value={newRule.poc_fixed} onChange={e => setNewRule(p => ({ ...p, poc_fixed: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
                   </div>
-                  <span className="font-mono text-xs" style={{ color: r.is_active ? '#00D97E' : '#4A6080' }}>{r.is_active ? 'ACTIVE' : 'OFF'}</span>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Min Churn Score</label><input type="number" value={newRule.condition_churn_min} onChange={e => setNewRule(p => ({ ...p, condition_churn_min: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Max Per Day</label><input type="number" value={newRule.max_per_day} onChange={e => setNewRule(p => ({ ...p, max_per_day: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Cooldown (min)</label><input type="number" value={newRule.cooldown_min} onChange={e => setNewRule(p => ({ ...p, cooldown_min: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Time Window</label><select value={newRule.condition_time_window} onChange={e => setNewRule(p => ({ ...p, condition_time_window: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['always', 'weekdays', 'weekends', 'happy_hour'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
+                  </div>
+                  <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Message Template (use {'{amount}'} for POC value)</label><input value={newRule.message_template} onChange={e => setNewRule(p => ({ ...p, message_template: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                  <div className="flex gap-2"><button onClick={createRule} className="px-4 py-2 rounded text-xs font-medium" style={{ background: '#FFD700', color: '#070B14' }}>Create Rule</button><button onClick={() => setShowNewRule(false)} className="px-4 py-2 rounded text-xs" style={{ color: '#4A6080' }}>Cancel</button></div>
+                </div>
+              )}
+              {/* Rule List */}
+              {rules.map(r => (
+                <div key={r.id} className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: r.is_active ? '#00D97E30' : '#1A2540' }}>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => toggleRule(r.id)} className="w-10 h-5 rounded-full flex items-center transition-colors" style={{ background: r.is_active ? '#00D97E' : '#1A2540', justifyContent: r.is_active ? 'flex-end' : 'flex-start', padding: '2px' }}><span className="w-4 h-4 rounded-full" style={{ background: '#F0F4FF' }} /></button>
+                    <div className="flex-1">
+                      <div className="text-xs font-semibold" style={{ color: '#F0F4FF' }}>{r.name}</div>
+                      <div className="text-[10px] font-mono" style={{ color: '#4A6080' }}>
+                        Trigger: {r.trigger} | POC: <span style={{ color: '#00D97E' }}>${r.poc_fixed}</span> | Churn: {r.condition_churn_min || 'any'}+ | Max/day: {r.max_per_day || '∞'} | Cooldown: {r.cooldown_min || 0}min | Window: {r.condition_time_window || 'always'}
+                      </div>
+                    </div>
+                    {r.is_custom && <button onClick={() => deleteRule(r.id)} style={{ color: '#FF3B3B' }}><Trash size={14} /></button>}
+                    <span className="font-mono text-xs" style={{ color: r.is_active ? '#00D97E' : '#4A6080' }}>{r.is_active ? 'ACTIVE' : 'OFF'}</span>
+                  </div>
                 </div>
               ))}
+              {/* Engine Status */}
+              {engineStatus && (
+                <div className="rounded-lg border p-3 mt-3" style={{ background: '#111827', borderColor: '#1A2540' }}>
+                  <div className="flex items-center gap-4 text-[10px] font-mono">
+                    <span style={{ color: engineStatus.auto_enabled ? '#00D97E' : '#FF3B3B' }}>Engine: {engineStatus.auto_enabled ? 'AUTO' : 'MANUAL'}</span>
+                    <span style={{ color: '#4A6080' }}>Budget: ${engineStatus.budget_daily}</span>
+                    <span style={{ color: '#00D97E' }}>Spent today: ${engineStatus.budget_spent_today}</span>
+                    <span style={{ color: '#FFD700' }}>Remaining: ${engineStatus.budget_remaining}</span>
+                    <span style={{ color: '#4A6080' }}>Awards today: {engineStatus.awards_today}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* RTP COMPENSATION */}
+          {activeTab === 'rtp' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>RTP Compensation — Players Below 70% Return</h3>
+                <button onClick={fetchRtpPlayers} className="flex items-center gap-1 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}><Warning size={14} /> Scan Players</button>
+              </div>
+              {rtpPlayers.length > 0 ? (
+                <div className="space-y-2">
+                  {rtpPlayers.map(p => (
+                    <div key={p.player_id} className="rounded-lg border p-4 flex items-center gap-4" style={{ background: '#0C1322', borderColor: '#FF3B3B30' }}>
+                      <div className="text-center w-16">
+                        <div className="font-mono text-xl font-black" style={{ color: p.rtp_pct >= 65 ? '#FFB800' : '#FF3B3B' }}>{p.rtp_pct}%</div>
+                        <div className="text-[8px] uppercase" style={{ color: '#4A6080' }}>RTP</div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2"><span className="text-xs font-semibold" style={{ color: '#F0F4FF' }}>{p.player_name}</span><span className="text-[10px] font-mono" style={{ color: '#4A6080' }}>{p.player_id}</span>{p.tier && <span className="text-[9px] px-1 rounded" style={{ background: '#FFD70020', color: '#FFD700' }}>{p.tier}</span>}</div>
+                        <div className="text-[10px] font-mono mt-0.5" style={{ color: '#4A6080' }}>Wagered: ${p.total_wagered?.toLocaleString()} | Won: ${p.total_won?.toLocaleString()} | Deficit: <span style={{ color: '#FF3B3B' }}>${p.deficit_dollars?.toLocaleString()}</span> | Sessions: {p.sessions}{p.has_pending_compensation && <span style={{ color: '#FFB800' }}> | Has pending POC</span>}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => compensateRtp(p.player_id, true)} className="px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FFD700', color: '#070B14' }}>Auto Compensate</button>
+                        <button onClick={() => sendWalletPoc(p.player_id, 25)} className="px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>Send $25 POC</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border p-8 text-center" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+                  <Warning size={40} className="mx-auto mb-3" style={{ color: '#1A2540' }} />
+                  <div className="text-sm" style={{ color: '#4A6080' }}>Click "Scan Players" to find players below 70% RTP</div>
+                  <div className="text-xs mt-1" style={{ color: '#4A6080' }}>These players may need compensation to maintain loyalty</div>
+                </div>
+              )}
             </div>
           )}
 
@@ -236,6 +364,52 @@ export default function PIRSPage() {
                 <div className="flex justify-between text-sm"><span style={{ color: '#4A6080' }}>Awards Count</span><span className="font-mono font-bold" style={{ color: '#F0F4FF' }}>{roi.awards_count}</span></div>
                 <div className="flex justify-between text-sm border-t pt-2" style={{ borderColor: '#1A2540' }}><span style={{ color: '#F0F4FF' }}>Net Return per $1 POC</span><span className="font-mono font-bold text-lg" style={{ color: '#FFD700' }}>${roi.roi}</span></div>
               </div>
+            </div>
+          )}
+
+          {/* SETTINGS / CONFIGURATION */}
+          {activeTab === 'config' && config && (
+            <div className="space-y-4">
+              <h3 className="font-heading text-lg font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}><GearSix size={20} /> PIRS Configuration</h3>
+              <div className="rounded-lg border p-5 space-y-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+                <h4 className="text-sm font-semibold" style={{ color: '#FFD700' }}>Budget Controls</h4>
+                <p className="text-xs" style={{ color: '#4A6080' }}>Set spending limits to control how much POC the system awards automatically.</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[['budget_daily_limit', 'Daily Budget ($)'], ['budget_weekly_limit', 'Weekly Budget ($)'], ['budget_monthly_limit', 'Monthly Budget ($)'], ['budget_per_player_daily', 'Per Player Daily ($)'], ['budget_per_player_session', 'Per Player Session ($)'], ['max_poc_amount', 'Max POC Amount ($)']].map(([k, l]) => (
+                    <div key={k}><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>{l}</label><input type="number" value={config[k] || ''} onChange={e => setConfig(p => ({ ...p, [k]: +e.target.value }))} className="w-full px-3 py-2 rounded text-sm outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border p-5 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+                <h4 className="text-sm font-semibold" style={{ color: '#00B4D8' }}>Time-Based Multipliers</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="flex items-center gap-2 text-xs mb-2 cursor-pointer" style={{ color: '#F0F4FF' }}><input type="checkbox" checked={config.happy_hour_enabled || false} onChange={e => setConfig(p => ({ ...p, happy_hour_enabled: e.target.checked }))} className="w-4 h-4" />Enable Happy Hour</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div><label className="block text-[8px]" style={{ color: '#4A6080' }}>Start</label><input value={config.happy_hour_start || '16:00'} onChange={e => setConfig(p => ({ ...p, happy_hour_start: e.target.value }))} className="w-full px-2 py-1 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                      <div><label className="block text-[8px]" style={{ color: '#4A6080' }}>End</label><input value={config.happy_hour_end || '18:00'} onChange={e => setConfig(p => ({ ...p, happy_hour_end: e.target.value }))} className="w-full px-2 py-1 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                      <div><label className="block text-[8px]" style={{ color: '#4A6080' }}>Multiplier</label><input type="number" step="0.1" value={config.happy_hour_multiplier || 1.5} onChange={e => setConfig(p => ({ ...p, happy_hour_multiplier: +e.target.value }))} className="w-full px-2 py-1 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Weekend Multiplier</label>
+                    <input type="number" step="0.1" value={config.weekend_multiplier || 1.0} onChange={e => setConfig(p => ({ ...p, weekend_multiplier: +e.target.value }))} className="w-full px-3 py-2 rounded text-sm outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+                    <div className="text-[8px]" style={{ color: '#4A6080' }}>1.0 = no boost, 1.25 = 25% more on weekends</div>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border p-5 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+                <h4 className="text-sm font-semibold" style={{ color: '#00D97E' }}>Engine Controls</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#F0F4FF' }}><input type="checkbox" checked={config.auto_rules_enabled || false} onChange={e => setConfig(p => ({ ...p, auto_rules_enabled: e.target.checked }))} className="w-4 h-4" />Auto-run reward rules (award POC when conditions met)</label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#F0F4FF' }}><input type="checkbox" checked={config.auto_scale_rewards || false} onChange={e => setConfig(p => ({ ...p, auto_scale_rewards: e.target.checked }))} className="w-4 h-4" />Auto-scale as player base grows (recalculate scores each run)</label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>New Player Welcome POC ($)</label><input type="number" value={config.new_player_welcome_poc || 10} onChange={e => setConfig(p => ({ ...p, new_player_welcome_poc: +e.target.value }))} className="w-full px-3 py-2 rounded text-sm outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                  <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Min POC Amount ($)</label><input type="number" value={config.min_poc_amount || 5} onChange={e => setConfig(p => ({ ...p, min_poc_amount: +e.target.value }))} className="w-full px-3 py-2 rounded text-sm outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                </div>
+              </div>
+              <button onClick={() => updateConfig(config)} className="w-full py-3 rounded-lg text-sm font-semibold" style={{ background: '#FFD700', color: '#070B14' }}>Save All Configuration Changes</button>
             </div>
           )}
         </div>
