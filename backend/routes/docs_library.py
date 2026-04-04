@@ -1521,6 +1521,294 @@ These are REQUIRED by most state gaming regulators. Your game MUST be able to di
 4. Send it
 5. Your game should show the message within 30 seconds (on its next poll)"""},
     ]},
+
+    {"id": "pirs-rewards", "title": "PIRS Player Rewards", "icon": "Crown", "docs": [
+        {"id": "pirs-what-is", "title": "What is PIRS?", "content": """**PIRS (Players Intelligence Rewards System) is your secret weapon for keeping players coming back.**
+
+Think of PIRS as a smart loyalty manager that watches how every player behaves and automatically rewards the ones most likely to keep playing. It uses artificial intelligence to figure out which players are your most valuable, and sends them bonus credits at exactly the right moment.
+
+**What PIRS does for you:**
+- Tracks every player who uses a loyalty card
+- Calculates a "Churn Score" (0-100) for each player — higher means they play back more of their winnings instead of cashing out
+- Automatically sends Play Only Credits (POC) — bonus money that can be played but not cashed out
+- Monitors Return-to-Player (RTP) rates and flags players who've been unlucky
+- Groups players into tiers (Bronze → Silver → Gold → Platinum → Diamond) so your best players get the best rewards
+- Tracks the ROI of every bonus dollar you spend
+
+**The bottom line:** For every $1 you invest in POC, PIRS players typically generate $10-15 in additional play. That's a 10-15x return on your investment.
+
+**Where to find it:**
+Click **PIRS Rewards** in the left sidebar (look for the crown icon)."""},
+
+        {"id": "pirs-dashboard-tour", "title": "Understanding the PIRS Dashboard", "content": """**The PIRS dashboard has 6 tabs. Here's what each one does:**
+
+**Tab 1: Fleet Overview**
+The big picture of your entire player base:
+- **7 KPI cards at top:** Total Players, Active Now (playing right now), Average Churn Score, Lifetime Coin-In, POC awarded today, Awards today, Players at risk of leaving
+- **Churn Score Distribution chart:** Bar chart showing how many players are in each segment (Elite, High Value, Mid Value, Developing, Casual, Low Value)
+- **Tiers:** Your loyalty tiers and their POC multipliers
+- **Live Bonus Feed:** Real-time list of POC being awarded right now
+
+**Tab 2: Player Intelligence**
+Deep dive into individual players:
+- Left side: Leaderboard ranked by Churn Score
+- Right side: Click any player to see their full profile — play-back rate, cash-out rate, lapse risk, POC ROI, session history, recent awards
+- Quick POC buttons to send $5-$50 directly to a player
+
+**Tab 3: Bonus Rules**
+All your reward rules — create, edit, toggle, delete (see separate article)
+
+**Tab 4: RTP Compensation**
+Find and help players who've been unlucky (see separate article)
+
+**Tab 5: Business Impact**
+Your return on investment — how much POC you've invested vs how much coin-in it generated
+
+**Tab 6: Settings**
+Configure budgets, multipliers, and engine controls (see separate article)"""},
+
+        {"id": "pirs-churn-score", "title": "Understanding Churn Scores", "content": """**The Churn Score is the most important number in PIRS. Here's what it means.**
+
+Every player gets a score from 0 to 100. A higher score means the player is more valuable because they tend to play back their winnings instead of cashing out.
+
+**How it's calculated (you don't need to remember this — the AI does it automatically):**
+- **25% Play-Back Rate** — What percentage of their credits do they keep playing vs cashing out?
+- **20% Cash-Out Behavior** — How often and how quickly do they cash out?
+- **15% Coin-In Ratio** — How much do they feed back in relative to their losses?
+- **10% Session Extension** — Do they keep playing when their credits get low?
+- **10% Visit Frequency** — How often do they come back?
+- **10% POC Response** — When you give them bonus credits, do they use them?
+- **10% Recency** — How recently did they last play?
+
+**What the segments mean:**
+- **Elite Churner (80-100)** — Your BEST players. They play back almost everything. Invest heavily in these players.
+- **High Value (65-79)** — Very good players. Worth significant POC investment.
+- **Mid Value (50-64)** — Solid players with room to grow. Moderate POC.
+- **Developing (35-49)** — Players who could become more valuable with the right incentives.
+- **Casual (20-34)** — Occasional players. Small POC to encourage more visits.
+- **Low Value (0-19)** — New or infrequent players. Welcome bonuses only.
+
+**What the tiers mean:**
+Tiers determine the POC multiplier — higher tier players get more bonus per dollar:
+- **Bronze** — 1.0x (base rate)
+- **Silver** — 1.15x (15% more POC)
+- **Gold** — 1.3x (30% more)
+- **Platinum** — 1.5x (50% more)
+- **Diamond** — 2.0x (double POC!)
+
+Example: If a rule awards $10 POC, a Diamond player actually gets $20."""},
+
+        {"id": "pirs-managing-rules", "title": "Creating & Editing Bonus Rules", "content": """**Bonus rules are the heart of PIRS — they decide who gets rewarded, when, and how much.**
+
+**To see your rules:**
+Go to PIRS Rewards > **Bonus Rules** tab
+
+**To create a new rule:**
+1. Click the yellow **"+ Create Rule"** button at the top right
+2. Fill in the form:
+   - **Rule Name** — Something descriptive like "Weekend High Roller Bonus"
+   - **Trigger** — When should this rule fire? Options:
+     - **card_in** — When the player inserts their loyalty card
+     - **coin_in_milestone** — When they've put in a certain dollar amount
+     - **session_duration** — When they've been playing for a certain number of minutes
+     - **post_win_playback** — When they keep playing after winning instead of cashing out
+     - **lapse_risk** — When the AI predicts they might stop coming
+     - **return_visit** — When they come back after being away
+     - **churn_threshold** — When their score reaches a certain level
+   - **POC Amount ($)** — How much bonus to give (e.g., $10, $25, $50)
+   - **Min Churn Score** — Only give this bonus to players with at least this score
+   - **Max Per Day** — How many times can one player get this bonus per day
+   - **Cooldown (min)** — Minimum minutes between awards of this rule for the same player
+   - **Time Window** — When is this rule active: always, weekdays only, weekends only, or happy hour only
+   - **Message Template** — The message shown on the EGM screen. Use {amount} and it will be replaced with the actual dollar value
+3. Click **"Create Rule"**
+
+**To edit an existing rule:**
+1. Find the rule in the list
+2. Click the **blue pencil icon** on the right
+3. The rule expands into an edit form — change anything you want
+4. Click **"Save Changes"** when done, or **"Cancel"** to discard
+
+**To turn a rule on or off:**
+Click the **green toggle switch** on the left side of any rule. Green = active, gray = off.
+
+**To delete a custom rule:**
+1. Click the **red trash icon** (only appears on rules you created)
+2. A red confirmation bar appears: "Are you sure you want to delete this? This cannot be undone."
+3. Click **"Yes, Delete"** to confirm, or **"Cancel"** to keep it
+
+**Important:** You cannot delete the built-in system rules — only toggle them off.
+
+**To run all rules immediately:**
+Click the green **"Run Engine Now"** button at the top. This evaluates every active rule against every player and awards POC where conditions are met."""},
+
+        {"id": "pirs-rtp-compensation", "title": "RTP Compensation — Helping Unlucky Players", "content": """**Sometimes players have really bad luck. PIRS helps you identify and compensate them.**
+
+**What is RTP?**
+RTP = Return To Player. If a player puts in $1,000 and wins back $800, their RTP is 80%. Most EGMs are designed to return 88-96% over time, but in the short term, some players get much less.
+
+**Why compensate?**
+A player who puts in $1,000 and only gets back $500 (50% RTP) is having a terrible experience. If you don't do something, they'll stop coming. A small $20-$50 bonus can keep that player loyal and they'll eventually return to normal play — worth thousands in future revenue.
+
+**How to find unlucky players:**
+1. Go to PIRS Rewards > **RTP Compensation** tab
+2. Click the blue **"Scan Players"** button
+3. UGG scans every player's history and shows anyone below 70% RTP
+
+**What you'll see for each flagged player:**
+- Their actual RTP percentage (shown in large text — red if very low, amber if borderline)
+- Total wagered and total won
+- Dollar deficit (how much below 70% they are)
+- Their churn score and tier
+- Whether they already have pending compensation
+
+**Two ways to compensate:**
+
+**Option 1: Auto Compensate (recommended)**
+Click the yellow **"Auto Compensate"** button next to the player. The system automatically:
+- Calculates 10% of their RTP deficit as POC
+- Caps it at $5 minimum, $100 maximum
+- Credits it to their player wallet
+- When they next card in at any EGM, the POC loads automatically
+- A message appears on screen: "We appreciate your loyalty! You have $XX in bonus credits waiting!"
+
+**Option 2: Manual amount**
+Click **"Send $25 POC"** (or go to Player Intelligence tab and use the quick POC buttons) to send a specific amount you choose.
+
+**The POC goes to their WALLET, not a specific machine.** This means:
+- You can send it anytime — the player doesn't need to be at a machine
+- It waits until they next card in
+- When they card in at ANY machine, all pending POC loads automatically
+- They see the welcome message on screen
+- The POC is Play Only — they can play with it but can't cash it out directly"""},
+
+        {"id": "pirs-settings", "title": "Configuring PIRS Settings", "content": """**The Settings tab lets you control everything about how PIRS operates.**
+
+Go to PIRS Rewards > **Settings** tab
+
+**Budget Controls (IMPORTANT — set these first!)**
+These prevent the system from spending more than you want:
+- **Daily Budget ($)** — Maximum total POC the engine can award in one day. Default: $500. If you have 100 EGMs, maybe set this to $200-$500 depending on your profit margins.
+- **Weekly Budget ($)** — Weekly cap. Default: $2,500
+- **Monthly Budget ($)** — Monthly cap. Default: $10,000
+- **Per Player Daily ($)** — No single player can receive more than this per day. Default: $50. Prevents one player from getting too much.
+- **Per Player Session ($)** — Cap per playing session. Default: $25
+- **Max POC Amount ($)** — Largest single award the system can give. Default: $100
+
+**Time-Based Multipliers (drive traffic when you need it)**
+- **Happy Hour:** Check the box to enable, then set start time, end time, and multiplier. Example: 4:00 PM to 6:00 PM with 1.5x multiplier = all POC awards are 50% bigger during that window
+- **Weekend Multiplier:** Set a number like 1.25 to give 25% more POC on Saturday and Sunday. Set 1.0 for no weekend boost.
+
+**Engine Controls**
+- **Auto-run reward rules:** When ON, the system automatically evaluates rules and awards POC without you clicking anything. When OFF, you must click "Run Engine Now" manually.
+- **Auto-scale rewards:** When ON, the system recalculates every player's churn score on each engine run. Turn this on — it keeps scores accurate as players' behavior changes.
+- **New Player Welcome POC ($):** Bonus amount for first-time loyalty card users. Default: $10
+- **Min POC Amount ($):** Smallest award the system will give. Default: $5. Awards calculated below this are rounded up.
+
+**After changing settings:**
+Click the yellow **"Save All Configuration Changes"** button at the bottom. Changes take effect immediately on the next engine run.
+
+**Recommended starting configuration for a new route:**
+- Daily Budget: $200 (conservative — increase as you see ROI)
+- Per Player Daily: $30
+- Happy Hour: Enable, 4-6 PM, 1.5x
+- Weekend Multiplier: 1.25
+- Auto-run: ON
+- Auto-scale: ON
+- New Player Welcome: $10
+
+Monitor your Business Impact tab for a week. If ROI is above 8:1, consider increasing budgets."""},
+
+        {"id": "pirs-sending-poc", "title": "Sending POC to Players", "content": """**There are 4 ways to send POC to players:**
+
+**Way 1: Automatic (engine runs rules)**
+The PIRS engine evaluates all your active rules against all players. When a player meets a rule's conditions, they get POC automatically. This happens every time the engine runs (automatic or manual).
+
+**Way 2: Quick Send from Player Profile**
+1. Go to PIRS > Player Intelligence tab
+2. Click a player in the leaderboard
+3. In the detail panel, click one of the dollar buttons ($5, $10, $15, $25, $50)
+4. Click **"Send $X POC"**
+5. POC is awarded immediately (if they're at a machine) or goes to their wallet
+
+**Way 3: RTP Compensation**
+1. Go to PIRS > RTP Compensation tab
+2. Click "Scan Players"
+3. Click "Auto Compensate" or "Send $25 POC" for any flagged player
+4. POC goes to their wallet — loads on next card-in
+
+**Way 4: Wallet Credit (send anytime, player doesn't need to be playing)**
+Use this when you want to reward a player who isn't currently at a machine — maybe they called to complain, or you want to bring back someone who hasn't visited in a while.
+The POC sits in their wallet and auto-delivers when they next card in.
+
+**What happens when POC is delivered to an EGM:**
+1. A golden message appears on the machine screen: "Welcome back! $XX in bonus credits loaded!"
+2. The credits are added to the machine as non-cashable credits
+3. The player can use them to play but cannot cash them out
+4. If they win using POC credits, the winnings ARE cashable
+5. UGG tracks the delivery in the POC History"""},
+
+        {"id": "pirs-monitoring-roi", "title": "Monitoring Your Investment", "content": """**The Business Impact tab tells you if PIRS is making you money.**
+
+Go to PIRS Rewards > **Business Impact** tab
+
+**The Big Number: ROI**
+This shows your return on investment as a ratio. For example:
+- **12.6:1** means for every $1 of POC you gave away, players generated $12.60 in additional play
+- **Target: 10:1** — anything above this is excellent
+- Below 5:1 — you might be giving POC to the wrong players. Check your rule conditions.
+
+**The breakdown shows:**
+- **Total POC Invested** — How much bonus money you've given out
+- **Coin-In Generated** — How much additional play that POC created
+- **Awards Count** — Number of individual POC awards
+- **Net Return per $1 POC** — The dollar return on each dollar invested
+
+**How to improve your ROI:**
+1. **Focus on high-churn players:** Set rule conditions to require Churn Score 60+ for most bonuses
+2. **Use time multipliers wisely:** Happy Hour drives traffic to slow periods
+3. **Watch the lapse risk:** Players about to leave are the most cost-effective to retain
+4. **Don't over-reward casuals:** Low-score players rarely generate enough play to justify large POC
+5. **Check individual player ROI:** In the Player Intelligence tab, each player shows their lifetime POC ROI. If a player's ROI is below 3:1, reduce their POC.
+
+**Check Business Impact at least weekly.** If ROI drops below 5:1, review your rules and tighten the churn score thresholds."""},
+
+        {"id": "pirs-best-practices", "title": "PIRS Best Practices", "content": """**Follow these guidelines to get the most out of PIRS:**
+
+**1. Start conservative, then increase**
+Begin with a $200 daily budget and $10-$15 POC awards. Watch the ROI for 2 weeks. If it's above 8:1, gradually increase budgets and award amounts.
+
+**2. Your top 20% of players generate 80% of revenue**
+Focus your POC investment on Elite and High Value churners (score 65+). These players play back most of what they receive.
+
+**3. Lapse prevention is the highest-ROI activity**
+A $15 bonus to a player who's about to stop coming is worth more than a $50 bonus to someone who's going to play anyway. Enable the LAPSE_PREVENTION rule and set it to trigger at 70+ lapse risk.
+
+**4. Happy Hour drives traffic**
+Enable the Happy Hour multiplier during your slowest hours. If your venues are quiet from 2-5 PM, set that as happy hour with 1.5x POC. Players will come during those hours to get better bonuses.
+
+**5. Compensate unlucky players FAST**
+Check the RTP Compensation tab weekly. Players below 60% RTP are at extreme risk of never returning. A quick $20-$30 POC can save a customer worth $5,000+ per year.
+
+**6. Don't reward cash-out behavior**
+If a player's cash-out rate is above 80%, they're taking money out, not playing it back. PIRS already accounts for this — high cash-out players get low churn scores and less POC.
+
+**7. Monitor your engine status daily**
+The engine status bar at the bottom of the Bonus Rules tab shows:
+- How much budget you've spent today
+- How much is remaining
+- How many awards were given
+If you see "Budget Remaining: $0" early in the day, consider increasing your daily budget.
+
+**8. Create weekend-specific rules**
+Player behavior changes on weekends. Create rules with "weekends" time window that offer slightly higher POC to capture weekend traffic.
+
+**9. Review and adjust monthly**
+Every month, look at Business Impact and ask: Which rules generated the highest ROI? Which player segments are growing? Should I adjust tier thresholds or POC amounts?
+
+**10. Trust the AI but verify**
+PIRS's churn scoring is powerful but it's based on historical behavior. Occasionally check the Player Intelligence tab and verify that top-scored players match your real-world experience. If the AI is rating a player highly that you know is actually low-value, check their play-back rate data."""},
+    ]},
 ]
 
 
