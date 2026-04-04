@@ -149,6 +149,7 @@ DEFAULT_RULES = [
     {"id": "LAPSE_PREVENTION", "name": "Lapse Prevention", "trigger": "lapse_risk", "condition_lapse_min": 70, "poc_fixed": 15, "max_per_day": 1, "is_active": True},
     {"id": "RETURN_VISIT_7D", "name": "7-Day Return Visit", "trigger": "return_visit", "condition_days_absent": 7, "poc_fixed": 10, "max_per_day": 1, "is_active": True},
     {"id": "CHURN_SCORE_80", "name": "Churn Score 80 Reward", "trigger": "churn_threshold", "condition_churn_min": 80, "poc_fixed": 20, "max_per_day": 1, "is_active": True},
+    {"id": "CREDIT_EYE", "name": "Credit Eye — Last Dollar Rescue", "trigger": "credit_eye", "condition_credits_max": 100, "poc_fixed": 5, "max_per_session": 1, "cooldown_min": 30, "is_active": True, "message_template": "Don't leave yet! We just added ${amount} in bonus credits to keep the fun going!"},
 ]
 
 
@@ -239,6 +240,254 @@ async def award_poc(request: Request):
         })
 
     return award
+
+
+# ══════════════════════════════════════════════════
+# CREDIT EYE — Low Credit Detection & Last Dollar Rescue
+# ══════════════════════════════════════════════════
+
+@router.get("/credit-eye/monitor")
+async def credit_eye_monitor(request: Request):
+    """
+    Scan active players for low credit balances.
+    Returns players approaching $0 who are candidates for a Credit Eye bonus.
+    """
+    await get_current_user(request)
+
+    # Get Credit Eye config
+    credit_eye_rule = await db.pirs_rules.find_one({"trigger": "credit_eye", "is_active": True}, {"_id": 0})
+    threshold = credit_eye_rule.get("condition_credits_max", 100) if credit_eye_rule else 100
+    poc_amount = credit_eye_rule.get("poc_fixed", 5) if credit_eye_rule else 5
+
+    # Find active players with low credits from the Digital Twin
+    low_credit_devices = await db.device_state_projection.find(
+        {"current_credits": {"$lte": threshold, "$gt": 0}, "operational_state": "ONLINE"},
+        {"_id": 0}
+    ).to_list(200)
+
+    alerts = []
+    for dev in low_credit_devices:
+        device_id = dev.get("device_id", "")
+        credits = dev.get("current_credits", 0)
+
+        # Check if there's an active session on this device
+        session = await db.player_sessions.find_one(
+            {"device_id": device_id, "status": "active"},
+            {"_id": 0}
+        )
+
+        if not session:
+            continue
+
+        player_id = session.get("player_id")
+        if not player_id:
+            continue
+
+        # Check if Credit Eye already fired for this session
+        already_awarded = await db.poc_awards.find_one({
+            "player_id": player_id,
+            "trigger_type": "credit_eye",
+            "egm_id": device_id,
+            "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(minutes=credit_eye_rule.get("cooldown_min", 30) if credit_eye_rule else 30)).isoformat()},
+        })
+        if already_awarded:
+            continue
+
+        # Get PIRS profile
+        pirs_player = await db.pirs_players.find_one({"player_id": player_id}, {"_id": 0, "player_name": 1, "churn_score": 1, "tier_name": 1, "tier_id": 1})
+
+        # Apply tier multiplier
+        tier = get_tier(pirs_player.get("churn_score", 0)) if pirs_player else TIERS[0]
+        final_amount = round(poc_amount * tier["poc_multiplier"], 2)
+
+        alerts.append({
+            "player_id": player_id,
+            "player_name": pirs_player.get("player_name", session.get("player_name", "Unknown")) if pirs_player else session.get("player_name", "Unknown"),
+            "device_id": device_id,
+            "device_ref": dev.get("device_ref", ""),
+            "current_credits": credits,
+            "credits_dollars": round(credits / 100, 2),
+            "churn_score": pirs_player.get("churn_score") if pirs_player else None,
+            "tier": tier["name"],
+            "tier_multiplier": tier["poc_multiplier"],
+            "session_duration_min": session.get("duration_minutes", 0),
+            "session_wagered": session.get("total_wagered", 0),
+            "suggested_poc": final_amount,
+            "urgency": "CRITICAL" if credits <= 25 else "HIGH" if credits <= 50 else "MEDIUM",
+            "message": f"Player has ${credits/100:.2f} remaining — suggest ${final_amount:.2f} Credit Eye bonus",
+        })
+
+    alerts.sort(key=lambda a: a["current_credits"])
+
+    return {
+        "credit_eye_alerts": alerts,
+        "total_alerts": len(alerts),
+        "threshold_credits": threshold,
+        "threshold_dollars": round(threshold / 100, 2),
+        "default_poc": poc_amount,
+        "rule_active": credit_eye_rule is not None and credit_eye_rule.get("is_active", False),
+    }
+
+
+@router.post("/credit-eye/award")
+async def credit_eye_award(request: Request):
+    """Award a Credit Eye bonus to a player who is running low on credits."""
+    user = await get_current_user(request)
+    body = await request.json()
+    player_id = body.get("player_id")
+    device_id = body.get("device_id")
+    amount = body.get("amount", 5)
+    message = body.get("message", f"Don't leave yet! We just added ${amount:.2f} in bonus credits to keep the fun going!")
+
+    # Get player info
+    pirs_player = await db.pirs_players.find_one({"player_id": player_id}, {"_id": 0})
+    tier = get_tier(pirs_player.get("churn_score", 0)) if pirs_player else TIERS[0]
+    final_amount = round(amount * tier["poc_multiplier"], 2)
+
+    now = datetime.now(timezone.utc)
+
+    # Create POC award
+    award = {
+        "id": str(uuid.uuid4()),
+        "player_id": player_id,
+        "player_name": pirs_player.get("player_name", "") if pirs_player else "",
+        "egm_id": device_id,
+        "trigger_type": "credit_eye",
+        "rule_id": "CREDIT_EYE",
+        "rule_name": "Credit Eye — Last Dollar Rescue",
+        "poc_amount": final_amount,
+        "poc_type": "play_only_credits",
+        "churn_score_at_award": pirs_player.get("churn_score", 0) if pirs_player else 0,
+        "tier_at_award": tier["name"],
+        "tier_multiplier": tier["poc_multiplier"],
+        "message_text": message.replace("{amount}", f"${final_amount:.2f}"),
+        "delivery_status": "delivered",
+        "delivered_at": now.isoformat(),
+        "awarded_by": user.get("email"),
+        "created_at": now.isoformat(),
+    }
+    await db.poc_awards.insert_one(award)
+    award.pop("_id", None)
+
+    # Update player totals
+    if pirs_player:
+        await db.pirs_players.update_one({"player_id": player_id}, {"$inc": {"total_poc_awarded": final_amount, "poc_awards_count": 1}})
+
+    # Push message to the EGM immediately
+    await db.device_messages.insert_one({
+        "id": str(uuid.uuid4()),
+        "device_id": device_id,
+        "message_text": award["message_text"],
+        "message_type": "PROMO",
+        "display_duration_seconds": 20,
+        "display_position": "CENTER",
+        "background_color": "#FFD700",
+        "text_color": "#070B14",
+        "priority": "URGENT",
+        "expires_at": (now + timedelta(minutes=5)).isoformat(),
+        "sent_by": "PIRS_CREDIT_EYE",
+        "sent_at": now.isoformat(),
+        "status": "PENDING",
+    })
+
+    # Create a notification for the operator
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": str(user.get("_id", user.get("id", ""))),
+        "tenant_id": "",
+        "type": "CREDIT_EYE_FIRED",
+        "title": f"Credit Eye: ${final_amount:.2f} sent to {pirs_player.get('player_name', player_id) if pirs_player else player_id}",
+        "body": f"Player had {body.get('current_credits', '?')} credits left at {device_id}. {tier['name']} tier ({tier['poc_multiplier']}x).",
+        "link_path": "/pirs",
+        "severity": "INFO",
+        "is_read": False,
+        "created_at": now.isoformat(),
+    })
+
+    return award
+
+
+@router.post("/credit-eye/auto-scan")
+async def credit_eye_auto_scan(request: Request):
+    """
+    Run Credit Eye scan and automatically award to ALL qualifying players.
+    This is the 'fire and forget' mode — the system handles everything.
+    """
+    user = await get_current_user(request)
+
+    # Get the monitor results
+    from starlette.testclient import TestClient
+    # Direct call to monitor logic
+    credit_eye_rule = await db.pirs_rules.find_one({"trigger": "credit_eye", "is_active": True}, {"_id": 0})
+    if not credit_eye_rule:
+        return {"message": "Credit Eye rule is not active", "awards": 0}
+
+    threshold = credit_eye_rule.get("condition_credits_max", 100)
+    poc_amount = credit_eye_rule.get("poc_fixed", 5)
+
+    low_credit_devices = await db.device_state_projection.find(
+        {"current_credits": {"$lte": threshold, "$gt": 0}, "operational_state": "ONLINE"},
+        {"_id": 0}
+    ).to_list(200)
+
+    awards_given = 0
+    now = datetime.now(timezone.utc)
+    cooldown = credit_eye_rule.get("cooldown_min", 30)
+    max_per_session = credit_eye_rule.get("max_per_session", 1)
+
+    for dev in low_credit_devices:
+        device_id = dev.get("device_id", "")
+        session = await db.player_sessions.find_one({"device_id": device_id, "status": "active"}, {"_id": 0})
+        if not session:
+            continue
+        player_id = session.get("player_id")
+        if not player_id:
+            continue
+
+        # Cooldown check
+        recent = await db.poc_awards.count_documents({
+            "player_id": player_id, "trigger_type": "credit_eye",
+            "created_at": {"$gte": (now - timedelta(minutes=cooldown)).isoformat()},
+        })
+        if recent >= max_per_session:
+            continue
+
+        # Get player and apply tier
+        pirs_player = await db.pirs_players.find_one({"player_id": player_id}, {"_id": 0})
+        tier = get_tier(pirs_player.get("churn_score", 0)) if pirs_player else TIERS[0]
+        final_amount = round(poc_amount * tier["poc_multiplier"], 2)
+
+        msg = credit_eye_rule.get("message_template", "Don't leave yet! We just added ${amount} in bonus credits to keep the fun going!").replace("{amount}", f"${final_amount:.2f}")
+
+        await db.poc_awards.insert_one({
+            "id": str(uuid.uuid4()), "player_id": player_id,
+            "player_name": pirs_player.get("player_name", "") if pirs_player else "",
+            "egm_id": device_id, "trigger_type": "credit_eye",
+            "rule_id": "CREDIT_EYE", "rule_name": "Credit Eye — Last Dollar Rescue",
+            "poc_amount": final_amount, "poc_type": "play_only_credits",
+            "churn_score_at_award": pirs_player.get("churn_score", 0) if pirs_player else 0,
+            "tier_at_award": tier["name"], "tier_multiplier": tier["poc_multiplier"],
+            "message_text": msg, "delivery_status": "delivered",
+            "delivered_at": now.isoformat(), "awarded_by": "CREDIT_EYE_AUTO",
+            "created_at": now.isoformat(),
+        })
+
+        await db.device_messages.insert_one({
+            "id": str(uuid.uuid4()), "device_id": device_id,
+            "message_text": msg, "message_type": "PROMO",
+            "display_duration_seconds": 20, "display_position": "CENTER",
+            "background_color": "#FFD700", "text_color": "#070B14",
+            "priority": "URGENT",
+            "expires_at": (now + timedelta(minutes=5)).isoformat(),
+            "sent_by": "PIRS_CREDIT_EYE", "sent_at": now.isoformat(), "status": "PENDING",
+        })
+
+        if pirs_player:
+            await db.pirs_players.update_one({"player_id": player_id}, {"$inc": {"total_poc_awarded": final_amount, "poc_awards_count": 1}})
+
+        awards_given += 1
+
+    return {"message": f"Credit Eye scan complete", "awards_given": awards_given, "devices_scanned": len(low_credit_devices)}
 
 
 @router.get("/poc/history")
