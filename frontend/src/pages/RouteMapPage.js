@@ -1,13 +1,38 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin, Desktop, Warning, CurrencyDollar, MagnifyingGlass, X, CaretRight, Globe, Mountains } from '@phosphor-icons/react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { MapPin, MagnifyingGlass, X, CaretRight, Globe, Mountains } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
-
+const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const STATUS_C = { healthy: '#00D97E', degraded: '#FFB800', critical: '#FF3B3B' };
+
+const TILE_URLS = {
+  dark: `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+  satellite: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+  streets: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+};
+
+function FitBounds({ venues }) {
+  const map = useMap();
+  useEffect(() => {
+    if (venues.length > 0) {
+      const bounds = venues.map(v => [v.lat, v.lng]);
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [venues, map]);
+  return null;
+}
+
+function StyleSwitcher({ mapStyle, setMapStyle }) {
+  const map = useMap();
+  // Force re-render by invalidating size when style changes
+  useEffect(() => {
+    setTimeout(() => map.invalidateSize(), 100);
+  }, [mapStyle, map]);
+  return null;
+}
 
 export default function RouteMapPage() {
   const [venues, setVenues] = useState([]);
@@ -16,16 +41,8 @@ export default function RouteMapPage() {
   const [venueDetail, setVenueDetail] = useState(null);
   const [search, setSearch] = useState('');
   const [mapStyle, setMapStyle] = useState('dark');
-  const mapContainer = useRef(null);
-  const mapRef = useRef(null);
-  const markersRef = useRef([]);
+  const [tileKey, setTileKey] = useState(0);
   const navigate = useNavigate();
-
-  const STYLES = {
-    dark: 'mapbox://styles/mapbox/dark-v11',
-    satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-    streets: 'mapbox://styles/mapbox/streets-v12',
-  };
 
   const fetchData = useCallback(async () => {
     const { data } = await api.get('/route-map/venues');
@@ -35,112 +52,17 @@ export default function RouteMapPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Initialize Mapbox
-  useEffect(() => {
-    if (!mapContainer.current || mapRef.current) return;
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: STYLES[mapStyle],
-      center: [-117.5, 37.8],
-      zoom: 5.5,
-      attributionControl: false,
-    });
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-    mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
-  }, []);
-
-  // Switch map style
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.setStyle(STYLES[mapStyle]);
-    // Re-add markers after style load
-    mapRef.current.once('style.load', () => addMarkers(venues));
-  }, [mapStyle]);
-
-  // Add/update markers when venues change
-  useEffect(() => {
-    if (!mapRef.current || !venues.length) return;
-    // Wait for style to be loaded
-    if (mapRef.current.isStyleLoaded()) {
-      addMarkers(venues);
-      fitBounds(venues);
-    } else {
-      mapRef.current.once('style.load', () => {
-        addMarkers(venues);
-        fitBounds(venues);
-      });
-    }
-  }, [venues]);
-
-  const addMarkers = (venueList) => {
-    // Clear old markers
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
-    if (!mapRef.current) return;
-
-    venueList.forEach(v => {
-      const color = STATUS_C[v.status] || '#4A6080';
-      const size = Math.max(14, Math.min(v.device_count * 4, 36));
-
-      const el = document.createElement('div');
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.borderRadius = '50%';
-      el.style.background = color;
-      el.style.opacity = '0.85';
-      el.style.border = `2px solid ${color}`;
-      el.style.boxShadow = `0 0 ${size/2}px ${color}60`;
-      el.style.cursor = 'pointer';
-      el.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
-      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.3)'; el.style.boxShadow = `0 0 ${size}px ${color}90`; });
-      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; el.style.boxShadow = `0 0 ${size/2}px ${color}60`; });
-      el.addEventListener('click', () => selectVenue(v));
-
-      // Tooltip popup
-      const popup = new mapboxgl.Popup({ offset: 15, closeButton: false, className: 'ugg-popup' })
-        .setHTML(`
-          <div style="background:#111827;color:#F0F4FF;padding:10px 14px;border-radius:8px;border:1px solid #1A2540;font-family:'IBM Plex Sans',sans-serif;min-width:200px">
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px">${v.name}</div>
-            <div style="font-size:11px;color:#8BA3CC">${v.city}, ${v.county} County</div>
-            <div style="display:flex;gap:12px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px">
-              <span style="color:${color}">${v.device_count} dev</span>
-              <span style="color:#00D97E">${v.health_pct}%</span>
-              <span style="color:#00B4D8">$${v.today_nor?.toLocaleString()}</span>
-              ${v.exception_count > 0 ? `<span style="color:#FF3B3B">${v.exception_count} exc</span>` : ''}
-            </div>
-          </div>
-        `);
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([v.lng, v.lat])
-        .setPopup(popup)
-        .addTo(mapRef.current);
-
-      markersRef.current.push(marker);
-    });
-  };
-
-  const fitBounds = (venueList) => {
-    if (!mapRef.current || !venueList.length) return;
-    const bounds = new mapboxgl.LngLatBounds();
-    venueList.forEach(v => bounds.extend([v.lng, v.lat]));
-    mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 12 });
-  };
-
   const selectVenue = async (v) => {
     setSelected(v);
-    if (mapRef.current) {
-      mapRef.current.flyTo({ center: [v.lng, v.lat], zoom: 12, duration: 1200 });
-    }
     try {
       const { data } = await api.get(`/route-map/venues/${v.id}`);
       setVenueDetail(data);
     } catch {}
   };
 
-  const flyToVenue = (v) => {
-    selectVenue(v);
+  const switchStyle = (style) => {
+    setMapStyle(style);
+    setTileKey(prev => prev + 1); // Force TileLayer remount
   };
 
   const filtered = search ? venues.filter(v => v.name.toLowerCase().includes(search.toLowerCase()) || v.city.toLowerCase().includes(search.toLowerCase())) : venues;
@@ -169,7 +91,7 @@ export default function RouteMapPage() {
         </div>
         <div className="flex-1 overflow-y-auto" data-testid="venue-list">
           {filtered.map(v => (
-            <button key={v.id} data-testid={`venue-item-${v.id}`} onClick={() => flyToVenue(v)}
+            <button key={v.id} data-testid={`venue-item-${v.id}`} onClick={() => selectVenue(v)}
               className="w-full text-left px-4 py-2.5 border-b transition-colors" style={{ borderColor: '#1A254020', background: selected?.id === v.id ? 'rgba(0,180,216,0.06)' : 'transparent' }}>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: STATUS_C[v.status] || '#4A6080' }} />
@@ -186,20 +108,61 @@ export default function RouteMapPage() {
         </div>
       </div>
 
-      {/* Center — Mapbox Map */}
+      {/* Center — Map */}
       <div className="flex-1 relative" style={{ background: '#070B14' }}>
-        <div ref={mapContainer} className="absolute inset-0" data-testid="mapbox-container" />
+        <MapContainer
+          center={[37.8, -117.5]}
+          zoom={6}
+          className="h-full w-full"
+          style={{ background: '#070B14' }}
+          zoomControl={true}
+          attributionControl={false}
+        >
+          <TileLayer
+            key={tileKey}
+            url={TILE_URLS[mapStyle]}
+            tileSize={512}
+            zoomOffset={-1}
+            attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+          />
+          <FitBounds venues={filtered} />
+          <StyleSwitcher mapStyle={mapStyle} setMapStyle={setMapStyle} />
+          {filtered.map(v => (
+            <CircleMarker
+              key={v.id}
+              center={[v.lat, v.lng]}
+              radius={Math.max(6, Math.min(v.device_count * 3, 18))}
+              pathOptions={{
+                color: STATUS_C[v.status],
+                fillColor: STATUS_C[v.status],
+                fillOpacity: 0.7,
+                weight: 2,
+              }}
+              eventHandlers={{ click: () => selectVenue(v) }}
+            >
+              <Popup>
+                <div style={{ color: '#F0F4FF', background: '#111827', padding: '10px 14px', borderRadius: '8px', border: '1px solid #1A2540', minWidth: '200px', fontFamily: 'IBM Plex Sans, sans-serif' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px' }}>{v.name}</div>
+                  <div style={{ fontSize: '11px', color: '#8BA3CC', marginTop: '4px' }}>{v.city}, {v.county} County</div>
+                  <div style={{ fontSize: '11px', color: '#8BA3CC', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {v.device_count} devices | {v.health_pct}% health | NOR: {fmt(v.today_nor)}
+                  </div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
+        </MapContainer>
 
         {/* Map Style Toggle */}
-        <div className="absolute top-4 left-4 z-10 flex rounded-lg overflow-hidden" style={{ border: '1px solid #1A2540', background: 'rgba(12,19,34,0.9)', backdropFilter: 'blur(8px)' }} data-testid="map-style-toggle">
+        <div className="absolute top-4 left-4 z-[1000] flex rounded-lg overflow-hidden" style={{ border: '1px solid #1A2540', background: 'rgba(12,19,34,0.92)', backdropFilter: 'blur(8px)' }} data-testid="map-style-toggle">
           {[
             { id: 'dark', label: 'Dark', icon: Globe },
             { id: 'satellite', label: 'Satellite', icon: Mountains },
             { id: 'streets', label: 'Streets', icon: MapPin },
-          ].map(s => (
-            <button key={s.id} data-testid={`map-style-${s.id}`} onClick={() => setMapStyle(s.id)}
+          ].map((s, i) => (
+            <button key={s.id} data-testid={`map-style-${s.id}`} onClick={() => switchStyle(s.id)}
               className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors"
-              style={{ background: mapStyle === s.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: mapStyle === s.id ? '#00B4D8' : '#4A6080', borderRight: '1px solid #1A2540' }}>
+              style={{ background: mapStyle === s.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: mapStyle === s.id ? '#00B4D8' : '#4A6080', borderRight: i < 2 ? '1px solid #1A2540' : 'none' }}>
               <s.icon size={14} /> {s.label}
             </button>
           ))}
@@ -207,7 +170,7 @@ export default function RouteMapPage() {
 
         {/* Estate Summary Bar */}
         {summary && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-6 px-6 py-2.5 rounded-lg" style={{ background: 'rgba(12,19,34,0.92)', border: '1px solid #1A2540', backdropFilter: 'blur(8px)' }}>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-6 px-6 py-2.5 rounded-lg" style={{ background: 'rgba(12,19,34,0.92)', border: '1px solid #1A2540', backdropFilter: 'blur(8px)' }}>
             <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Venues</div><div className="font-mono text-sm font-bold" style={{ color: '#F0F4FF' }}>{summary.total_venues}</div></div>
             <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Devices</div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{summary.total_devices}</div></div>
             <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Online</div><div className="font-mono text-sm font-bold" style={{ color: '#00B4D8' }}>{summary.online_pct}%</div></div>
