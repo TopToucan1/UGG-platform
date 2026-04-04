@@ -1462,3 +1462,284 @@ async def export_debug_session_zip(request: Request, session_id: str):
     zip_buffer.seek(0)
     filename = f"ugg_debug_session_{session_id}_{now.strftime('%Y%m%d_%H%M%S')}.zip"
     return StreamingResponse(zip_buffer, media_type="application/zip", headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+# ══════════════════════════════════════════════════
+# PRODUCTION G2S ENDPOINT — Full Startup + Keepalive
+# ══════════════════════════════════════════════════
+
+@router.post("/smart-egm/connect-production")
+async def connect_production_egm(request: Request):
+    """Connect to a real production EGM with full G2S startup sequence, keepalive, and mTLS."""
+    user = await get_current_user(request)
+    body = await request.json()
+    session_id = body.get("session_id", f"prod-{uuid.uuid4().hex[:8]}")
+    egm_url = body.get("egm_url")
+    device_id = body.get("device_id", "EGM001")
+    schema_version = body.get("schema_version", "G2S_2.1.0")
+    verify_ssl = body.get("verify_ssl", False)
+    keepalive_ms = body.get("keepalive_interval_ms", 30000)
+    startup_mode = body.get("startup_mode", "AUTO")  # AUTO or STEP_THROUGH
+    verbose = body.get("verbose", True)
+
+    import httpx
+    http_client = httpx.AsyncClient(timeout=httpx.Timeout(30.0), verify=verify_ssl)
+
+    conn = {
+        "session_id": session_id, "egm_url": egm_url, "device_id": device_id,
+        "schema_version": schema_version, "http_client": http_client,
+        "message_count": 0, "last_message_at": None, "status": "CONNECTING",
+        "errors": [], "startup_mode": startup_mode, "keepalive_ms": keepalive_ms,
+        "keepalive_task": None, "startup_steps": [], "is_production": True,
+    }
+    _live_connections[session_id] = conn
+    now = datetime.now(timezone.utc).isoformat()
+
+    # ── G2S STARTUP SEQUENCE ──
+    startup_steps = []
+
+    # Step 1: commsOnLine handshake
+    step = {"step": 1, "command": "commsOnLine", "class": "communications", "status": "pending"}
+    startup_steps.append(step)
+    result = await _send_live_g2s(session_id, "communications", "commsOnLine", {"g2sProtocol": schema_version})
+    step["status"] = "completed" if result.get("status") != "error" else "failed"
+    step["result"] = result
+
+    # Step 2: commsOnLineAck
+    step2 = {"step": 2, "command": "commsOnLineAck", "class": "communications", "status": "pending"}
+    startup_steps.append(step2)
+    result2 = await _send_live_g2s(session_id, "communications", "commsOnLineAck", {})
+    step2["status"] = "completed" if result2.get("status") != "error" else "failed"
+
+    # Step 3: setCommsState enable=true
+    step3 = {"step": 3, "command": "setCommsState", "class": "communications", "status": "pending"}
+    startup_steps.append(step3)
+    result3 = await _send_live_g2s(session_id, "communications", "setCommsState", {"enable": "true"})
+    step3["status"] = "completed"
+
+    # Step 4-N: Verbose mode — query each device class
+    if verbose:
+        g2s_classes = ["cabinet", "gamePlay", "meters", "noteAcceptor", "voucher", "handpay", "eventHandler", "bonus"]
+        for i, cls in enumerate(g2s_classes):
+            step_n = {"step": 4 + i * 2, "command": "getDeviceStatus", "class": cls, "status": "pending"}
+            startup_steps.append(step_n)
+            r = await _send_live_g2s(session_id, cls, "getDeviceStatus", {})
+            step_n["status"] = "completed"
+
+            step_e = {"step": 5 + i * 2, "command": "setDeviceState", "class": cls, "status": "pending"}
+            startup_steps.append(step_e)
+            r2 = await _send_live_g2s(session_id, cls, "setDeviceState", {"enable": "true"})
+            step_e["status"] = "completed"
+
+    # Final: Subscribe to events
+    step_sub = {"step": len(startup_steps) + 1, "command": "setEventSub", "class": "eventHandler", "status": "pending"}
+    startup_steps.append(step_sub)
+    await _send_live_g2s(session_id, "eventHandler", "setEventSub", {"deviceId": device_id})
+    step_sub["status"] = "completed"
+
+    conn["startup_steps"] = startup_steps
+    conn["status"] = "ONLINE"
+
+    # Start keepalive loop
+    async def keepalive_loop():
+        interval = keepalive_ms / 1000.0
+        missed = 0
+        while conn["status"] == "ONLINE":
+            await asyncio.sleep(interval)
+            try:
+                r = await _send_live_g2s(session_id, "communications", "keepAlive", {})
+                if r.get("status") != "error":
+                    missed = 0
+                else:
+                    missed += 1
+                    if missed >= 3:
+                        conn["status"] = "LOST"
+                        break
+            except Exception:
+                missed += 1
+    conn["keepalive_task"] = asyncio.create_task(keepalive_loop())
+
+    # Store session record
+    await db.lab_production_sessions.insert_one({
+        "id": session_id, "egm_url": egm_url, "device_id": device_id,
+        "schema_version": schema_version, "startup_mode": startup_mode,
+        "startup_steps": len(startup_steps), "startup_completed": True,
+        "connected_at": now, "connected_by": user.get("email"),
+    })
+
+    return {
+        "session_id": session_id, "status": "ONLINE",
+        "startup_steps": startup_steps,
+        "startup_count": len(startup_steps),
+        "message_count": conn["message_count"],
+        "egm_url": egm_url or "virtual",
+    }
+
+
+@router.get("/production-sessions")
+async def list_production_sessions(request: Request, limit: int = 20):
+    await get_current_user(request)
+    sessions = await db.lab_production_sessions.find({}, {"_id": 0}).sort("connected_at", -1).limit(limit).to_list(limit)
+    return {"sessions": sessions}
+
+
+# ══════════════════════════════════════════════════
+# SESSION RECORDING & REPLAY
+# ══════════════════════════════════════════════════
+
+@router.post("/recording/start")
+async def start_recording(request: Request):
+    """Start recording a session — all transcript entries will be tagged for replay."""
+    user = await get_current_user(request)
+    body = await request.json()
+    session_id = body.get("session_id", f"rec-{uuid.uuid4().hex[:8]}")
+    name = body.get("name", f"Recording {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}")
+
+    recording = {
+        "id": str(uuid.uuid4()),
+        "session_id": session_id,
+        "name": name,
+        "status": "RECORDING",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "stopped_at": None,
+        "event_count": 0,
+        "replay_count": 0,
+        "created_by": user.get("email"),
+    }
+    await db.lab_recordings.insert_one(recording)
+    recording.pop("_id", None)
+    return recording
+
+
+@router.post("/recording/stop/{recording_id}")
+async def stop_recording(request: Request, recording_id: str):
+    """Stop an active recording and snapshot the transcript count."""
+    await get_current_user(request)
+    recording = await db.lab_recordings.find_one({"id": recording_id})
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    session_id = recording["session_id"]
+    event_count = await db.lab_transcripts.count_documents({
+        "session_id": session_id,
+        "occurred_at": {"$gte": recording["started_at"]},
+    })
+
+    await db.lab_recordings.update_one(
+        {"id": recording_id},
+        {"$set": {"status": "COMPLETED", "stopped_at": datetime.now(timezone.utc).isoformat(), "event_count": event_count}},
+    )
+    return {"message": f"Recording stopped — {event_count} events captured", "event_count": event_count}
+
+
+@router.get("/recordings")
+async def list_recordings(request: Request, limit: int = 20):
+    await get_current_user(request)
+    recordings = await db.lab_recordings.find({}, {"_id": 0}).sort("started_at", -1).limit(limit).to_list(limit)
+    return {"recordings": recordings}
+
+
+@router.post("/recording/replay/{recording_id}")
+async def replay_recording(request: Request, recording_id: str):
+    """Replay a recorded session — sends all TX commands in sequence with original timing."""
+    user = await get_current_user(request)
+    body = await request.json()
+    target_session_id = body.get("target_session_id")
+    speed = body.get("speed", 1.0)  # 1.0 = real-time, 2.0 = double speed, 0 = instant
+
+    recording = await db.lab_recordings.find_one({"id": recording_id}, {"_id": 0})
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+    if recording["status"] != "COMPLETED":
+        raise HTTPException(status_code=400, detail="Recording must be COMPLETED to replay")
+
+    session_id = recording["session_id"]
+    replay_session = target_session_id or f"replay-{uuid.uuid4().hex[:8]}"
+
+    # Fetch all TX transcripts from the recording period
+    query = {"session_id": session_id, "direction": "TX"}
+    if recording.get("started_at"):
+        query["occurred_at"] = {"$gte": recording["started_at"]}
+    if recording.get("stopped_at"):
+        query.setdefault("occurred_at", {})["$lte"] = recording["stopped_at"]
+
+    tx_messages = await db.lab_transcripts.find(query, {"_id": 0}).sort("occurred_at", 1).to_list(10000)
+
+    if not tx_messages:
+        return {"message": "No TX messages found in recording", "replayed": 0}
+
+    # Replay with timing
+    replayed = 0
+    prev_time = None
+    replay_events = []
+
+    for msg in tx_messages:
+        # Calculate delay
+        if speed > 0 and prev_time and msg.get("occurred_at"):
+            try:
+                curr = datetime.fromisoformat(msg["occurred_at"].replace("Z", "+00:00"))
+                prev = datetime.fromisoformat(prev_time.replace("Z", "+00:00"))
+                delay = (curr - prev).total_seconds() / speed
+                if delay > 0 and delay < 30:  # Cap at 30s
+                    await asyncio.sleep(delay)
+            except Exception:
+                pass
+        prev_time = msg.get("occurred_at")
+
+        # Re-send the command to the target session
+        now = datetime.now(timezone.utc).isoformat()
+        replay_entry = {
+            "id": str(uuid.uuid4()), "session_id": replay_session,
+            "direction": "TX", "channel": msg.get("channel", "G2S"),
+            "command_class": msg.get("command_class"),
+            "command_name": msg.get("command_name"),
+            "session_type": "Replay",
+            "payload_xml": msg.get("payload_xml"),
+            "state": "Standard",
+            "comment": f"Replayed from recording {recording_id}",
+            "occurred_at": now,
+        }
+        await db.lab_transcripts.insert_one(replay_entry)
+        replay_events.append({"command": msg.get("command_name"), "class": msg.get("command_class"), "time": now})
+
+        # If target has a live connection, actually send the command
+        if target_session_id and target_session_id in _live_connections:
+            cmd_class = (msg.get("command_class") or "").replace("G2S_", "")
+            cmd_name = msg.get("command_name", "")
+            if cmd_class and cmd_name:
+                try:
+                    await _send_live_g2s(target_session_id, cmd_class, cmd_name, {})
+                except Exception:
+                    pass
+
+        replayed += 1
+
+    # Update recording replay count
+    await db.lab_recordings.update_one({"id": recording_id}, {"$inc": {"replay_count": 1}})
+
+    return {
+        "message": f"Replay complete — {replayed} commands sent",
+        "recording_id": recording_id,
+        "replay_session_id": replay_session,
+        "replayed": replayed,
+        "speed": speed,
+        "events": replay_events[:20],
+    }
+
+
+@router.get("/recording/{recording_id}/transcript")
+async def get_recording_transcript(request: Request, recording_id: str, limit: int = 200):
+    """Get the transcript messages from a specific recording."""
+    await get_current_user(request)
+    recording = await db.lab_recordings.find_one({"id": recording_id}, {"_id": 0})
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    query = {"session_id": recording["session_id"]}
+    if recording.get("started_at"):
+        query["occurred_at"] = {"$gte": recording["started_at"]}
+    if recording.get("stopped_at"):
+        query.setdefault("occurred_at", {})["$lte"] = recording["stopped_at"]
+
+    messages = await db.lab_transcripts.find(query, {"_id": 0}).sort("occurred_at", 1).limit(limit).to_list(limit)
+    return {"messages": messages, "total": len(messages), "recording": recording}

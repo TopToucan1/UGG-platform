@@ -13,34 +13,71 @@ const VERB_ICONS = { INSERT_BILL: CurrencyDollar, INSERT_VOUCHER: FileText, INSE
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// XML Syntax Highlighter
+// XML Syntax Highlighter with Find/Find Next/Match Case
 function XmlHighlight({ xml, maxLines = 30 }) {
+  const [findText, setFindText] = useState('');
+  const [matchCase, setMatchCase] = useState(false);
+  const [matchCount, setMatchCount] = useState(0);
+  const [currentMatch, setCurrentMatch] = useState(0);
+
   if (!xml) return null;
   const lines = xml.split('\n').slice(0, maxLines);
+
+  // Count matches
+  const getMatches = () => {
+    if (!findText) return 0;
+    const flags = matchCase ? 'g' : 'gi';
+    try { return (xml.match(new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags)) || []).length; } catch { return 0; }
+  };
+
+  const highlightFind = (text) => {
+    if (!findText || !text) return text;
+    try {
+      const flags = matchCase ? 'g' : 'gi';
+      const regex = new RegExp(`(${findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, flags);
+      return text.split(regex).map((part, i) =>
+        regex.test(part) ? <mark key={i} style={{ background: '#FFB80050', color: '#FFB800', padding: '0 1px', borderRadius: 2 }}>{part}</mark> : part
+      );
+    } catch { return text; }
+  };
+
   return (
-    <pre className="text-[10px] font-mono leading-relaxed overflow-x-auto p-3 rounded" style={{ background: '#111827', color: '#8BA3CC' }}>
-      {lines.map((line, i) => (
-        <div key={i}>
-          {line.split(/(<[^>]+>)/g).map((part, j) => {
-            if (part.startsWith('</')) return <span key={j} style={{ color: '#FF6B6B' }}>{part}</span>;
-            if (part.startsWith('<?')) return <span key={j} style={{ color: '#4A6080' }}>{part}</span>;
-            if (part.startsWith('<')) {
-              // Highlight tag name, attributes, values
-              return <span key={j}>{part.split(/(\s+\w+[:=]"[^"]*"|\s+\w+[:=]'[^']*')/g).map((seg, k) => {
-                if (/^\s+\w+[:=]/.test(seg)) {
-                  const [attr, ...rest] = seg.split(/[=]/);
-                  return <span key={k}><span style={{ color: '#FFB800' }}>{attr}</span>=<span style={{ color: '#00D97E' }}>{rest.join('=')}</span></span>;
-                }
-                if (seg.startsWith('<')) return <span key={k} style={{ color: '#00B4D8' }}>{seg}</span>;
-                return <span key={k}>{seg}</span>;
-              })}</span>;
-            }
-            return <span key={j}>{part}</span>;
-          })}
-        </div>
-      ))}
-      {xml.split('\n').length > maxLines && <div style={{ color: '#4A6080' }}>... ({xml.split('\n').length - maxLines} more lines)</div>}
-    </pre>
+    <div>
+      {/* Find Bar */}
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-t" style={{ background: '#0C1322', border: '1px solid #1A2540', borderBottom: 'none' }}>
+        <MagnifyingGlass size={12} style={{ color: '#4A6080' }} />
+        <input value={findText} onChange={e => { setFindText(e.target.value); setCurrentMatch(0); }}
+          placeholder="Find in XML..." className="flex-1 text-[10px] font-mono outline-none" style={{ background: 'transparent', color: '#F0F4FF' }} />
+        <label className="flex items-center gap-1 text-[9px] cursor-pointer" style={{ color: matchCase ? '#00B4D8' : '#4A6080' }}>
+          <input type="checkbox" checked={matchCase} onChange={e => setMatchCase(e.target.checked)} className="w-3 h-3" /> Aa
+        </label>
+        {findText && <span className="text-[9px] font-mono" style={{ color: '#FFB800' }}>{getMatches()} found</span>}
+      </div>
+      <pre className="text-[10px] font-mono leading-relaxed overflow-x-auto p-3 rounded-b" style={{ background: '#111827', color: '#8BA3CC', border: '1px solid #1A2540', borderTop: 'none' }}>
+        {lines.map((line, i) => (
+          <div key={i}>
+            {line.split(/(<[^>]+>)/g).map((part, j) => {
+              const highlighted = findText ? highlightFind(part) : part;
+              if (typeof highlighted !== 'string' && findText) return <span key={j}>{highlighted}</span>;
+              if (part.startsWith('</')) return <span key={j} style={{ color: '#FF6B6B' }}>{findText ? highlightFind(part) : part}</span>;
+              if (part.startsWith('<?')) return <span key={j} style={{ color: '#4A6080' }}>{part}</span>;
+              if (part.startsWith('<')) {
+                return <span key={j}>{part.split(/(\s+\w+[:=]"[^"]*"|\s+\w+[:=]'[^']*')/g).map((seg, k) => {
+                  if (/^\s+\w+[:=]/.test(seg)) {
+                    const [attr, ...rest] = seg.split(/[=]/);
+                    return <span key={k}><span style={{ color: '#FFB800' }}>{findText ? highlightFind(attr) : attr}</span>=<span style={{ color: '#00D97E' }}>{findText ? highlightFind(rest.join('=')) : rest.join('=')}</span></span>;
+                  }
+                  if (seg.startsWith('<')) return <span key={k} style={{ color: '#00B4D8' }}>{findText ? highlightFind(seg) : seg}</span>;
+                  return <span key={k}>{findText ? highlightFind(seg) : seg}</span>;
+                })}</span>;
+              }
+              return <span key={j}>{findText ? highlightFind(part) : part}</span>;
+            })}
+          </div>
+        ))}
+        {xml.split('\n').length > maxLines && <div style={{ color: '#4A6080' }}>... ({xml.split('\n').length - maxLines} more lines)</div>}
+      </pre>
+    </div>
   );
 }
 
@@ -82,6 +119,11 @@ export default function EmulatorLabPage() {
   const [liveCmdClass, setLiveCmdClass] = useState('cabinet');
   const [liveCmdName, setLiveCmdName] = useState('getDeviceStatus');
   const [liveResult, setLiveResult] = useState(null);
+  // Session Recording
+  const [recordings, setRecordings] = useState([]);
+  const [activeRecording, setActiveRecording] = useState(null);
+  const [replaySpeed, setReplaySpeed] = useState(1);
+  const [replayResult, setReplayResult] = useState(null);
 
   useEffect(() => {
     api.get('/emulator-lab/scripts').then(r => setScripts(r.data));
@@ -91,6 +133,7 @@ export default function EmulatorLabPage() {
     api.get('/adapters').then(r => setAdapters(r.data.adapters || []));
     api.get('/adapters/traces?limit=50').then(r => setTraces(r.data.traces || []));
     api.get('/emulator-lab/templates/parsed').then(r => setParsedTemplates(r.data.templates || []));
+    api.get('/emulator-lab/recordings').then(r => setRecordings(r.data.recordings || []));
     loadTranscriptWindow(0);
   }, []);
 
@@ -148,6 +191,33 @@ export default function EmulatorLabPage() {
 
   const exportSession = () => {
     window.open(`${API_URL}/api/emulator-lab/export-session/${sessionId}`, '_blank');
+  };
+
+  const startRecording = async () => {
+    const { data } = await api.post('/emulator-lab/recording/start', { session_id: sessionId });
+    setActiveRecording(data);
+    setRecordings(prev => [data, ...prev]);
+  };
+
+  const stopRecording = async () => {
+    if (!activeRecording) return;
+    await api.post(`/emulator-lab/recording/stop/${activeRecording.id}`);
+    setActiveRecording(null);
+    const { data } = await api.get('/emulator-lab/recordings');
+    setRecordings(data.recordings || []);
+  };
+
+  const replayRecording = async (recId) => {
+    setReplayResult(null);
+    const { data } = await api.post(`/emulator-lab/recording/replay/${recId}`, { target_session_id: sessionId, speed: replaySpeed });
+    setReplayResult(data);
+    loadTranscriptWindow(0);
+  };
+
+  const connectProduction = async () => {
+    const { data } = await api.post('/emulator-lab/smart-egm/connect-production', { session_id: sessionId, device_id: liveDeviceId, egm_url: liveUrl || undefined, verbose: true });
+    setLiveResult(data);
+    api.get('/emulator-lab/smart-egm/live-status').then(r => setLiveConns(r.data.connections || []));
   };
 
   const runScript = async () => {
@@ -453,10 +523,13 @@ export default function EmulatorLabPage() {
                 </div>
                 <div className="col-span-2 flex items-end gap-2">
                   <button data-testid="send-live-cmd-btn" onClick={sendLiveCommand} className="flex-1 flex items-center justify-center gap-2 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
-                    <ArrowRight size={14} /> Send Command
+                    <ArrowRight size={14} /> Send
+                  </button>
+                  <button data-testid="connect-production-btn" onClick={connectProduction} className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium" style={{ background: '#00D97E', color: '#070B14' }}>
+                    <Plugs size={14} /> Full Startup
                   </button>
                   <button data-testid="export-session-btn" onClick={exportSession} className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
-                    <Download size={14} /> Export ZIP
+                    <Download size={14} /> ZIP
                   </button>
                 </div>
               </div>
@@ -481,6 +554,75 @@ export default function EmulatorLabPage() {
                 {liveResult.error && <div className="text-xs mt-1" style={{ color: '#FF3B3B' }}>{liveResult.error}</div>}
               </div>
             )}
+            {/* Startup Steps Result */}
+            {liveResult?.startup_steps && (
+              <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#00D97E30' }}>
+                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>G2S Startup Sequence ({liveResult.startup_count} steps)</div>
+                <div className="space-y-1">
+                  {liveResult.startup_steps.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 px-2 py-1 rounded text-[10px] font-mono" style={{ background: '#111827' }}>
+                      <span className="w-5 text-right" style={{ color: '#4A6080' }}>{s.step}</span>
+                      <span className="w-2 h-2 rounded-full" style={{ background: s.status === 'completed' ? '#00D97E' : '#FF3B3B' }} />
+                      <span style={{ color: '#00B4D8' }}>{s.class}</span>
+                      <span style={{ color: '#F0F4FF' }}>{s.command}</span>
+                      <span className="ml-auto" style={{ color: s.status === 'completed' ? '#00D97E' : '#FF3B3B' }}>{s.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Session Recording */}
+            <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Session Recording</span>
+                {!activeRecording ? (
+                  <button data-testid="start-recording-btn" onClick={startRecording} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B', color: '#F0F4FF' }}>
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Start Recording
+                  </button>
+                ) : (
+                  <button data-testid="stop-recording-btn" onClick={stopRecording} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B20', color: '#FF3B3B', border: '1px solid #FF3B3B40' }}>
+                    <span className="w-2 h-2 rounded-sm" style={{ background: '#FF3B3B' }} /> Stop Recording
+                  </button>
+                )}
+              </div>
+              {activeRecording && (
+                <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: '#FF3B3B' }}>
+                  <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#FF3B3B' }} />
+                  Recording: {activeRecording.name} (session: {activeRecording.session_id})
+                </div>
+              )}
+              {/* Replay Controls */}
+              {recordings.filter(r => r.status === 'COMPLETED').length > 0 && (
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider mb-1 font-medium" style={{ color: '#4A6080' }}>Replay</div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px]" style={{ color: '#4A6080' }}>Speed:</span>
+                    {[0.5, 1, 2, 5, 0].map(s => (
+                      <button key={s} onClick={() => setReplaySpeed(s)} className="px-2 py-0.5 rounded text-[9px] font-mono" style={{ background: replaySpeed === s ? '#00B4D820' : '#111827', color: replaySpeed === s ? '#00B4D8' : '#4A6080', border: '1px solid #1A2540' }}>
+                        {s === 0 ? 'Instant' : `${s}x`}
+                      </button>
+                    ))}
+                  </div>
+                  {recordings.filter(r => r.status === 'COMPLETED').map(rec => (
+                    <div key={rec.id} className="flex items-center gap-2 px-2 py-1.5 rounded mb-1 text-[10px]" style={{ background: '#111827' }}>
+                      <span style={{ color: '#F0F4FF' }}>{rec.name}</span>
+                      <span className="font-mono" style={{ color: '#4A6080' }}>{rec.event_count} events</span>
+                      <span className="font-mono" style={{ color: '#4A6080' }}>{rec.replay_count}x replayed</span>
+                      <button data-testid={`replay-${rec.id}`} onClick={() => replayRecording(rec.id)} className="ml-auto px-2 py-0.5 rounded text-[9px] font-medium" style={{ background: '#00B4D820', color: '#00B4D8' }}>
+                        <Play size={10} className="inline mr-1" /> Replay
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {replayResult && (
+                <div className="text-[10px] font-mono px-2 py-1 rounded" style={{ background: '#111827', color: '#00D97E' }}>
+                  Replayed {replayResult.replayed} commands at {replayResult.speed}x speed
+                </div>
+              )}
+            </div>
+
             {/* Live Connections */}
             {liveConns.length > 0 && (
               <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Active Connections</div>
