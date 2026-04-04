@@ -11,6 +11,39 @@ import * as XLSX from 'xlsx';
 const STATE_C = { ONLINE: '#00D97E', SYNC: '#FFB800', OPENING: '#FFB800', LOST: '#FF3B3B', CLOSED: '#4A6080', ENABLED: '#00D97E', FAULT: '#FF3B3B', IDLE: '#4A6080', HANDPAY_PENDING: '#FFB800' };
 const VERB_ICONS = { INSERT_BILL: CurrencyDollar, INSERT_VOUCHER: FileText, INSERT_COIN: CurrencyDollar, PUSH_PLAY_BUTTON: GameController, PUSH_MAX_BET: GameController, CASH_OUT: CurrencyDollar, REQUEST_HANDPAY: Warning, OPEN_DOOR: Door, CLOSE_DOOR: Door, FORCE_TILT: Lightning, CLEAR_FAULT: Check, SET_CREDITS: CurrencyDollar };
 
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+// XML Syntax Highlighter
+function XmlHighlight({ xml, maxLines = 30 }) {
+  if (!xml) return null;
+  const lines = xml.split('\n').slice(0, maxLines);
+  return (
+    <pre className="text-[10px] font-mono leading-relaxed overflow-x-auto p-3 rounded" style={{ background: '#111827', color: '#8BA3CC' }}>
+      {lines.map((line, i) => (
+        <div key={i}>
+          {line.split(/(<[^>]+>)/g).map((part, j) => {
+            if (part.startsWith('</')) return <span key={j} style={{ color: '#FF6B6B' }}>{part}</span>;
+            if (part.startsWith('<?')) return <span key={j} style={{ color: '#4A6080' }}>{part}</span>;
+            if (part.startsWith('<')) {
+              // Highlight tag name, attributes, values
+              return <span key={j}>{part.split(/(\s+\w+[:=]"[^"]*"|\s+\w+[:=]'[^']*')/g).map((seg, k) => {
+                if (/^\s+\w+[:=]/.test(seg)) {
+                  const [attr, ...rest] = seg.split(/[=]/);
+                  return <span key={k}><span style={{ color: '#FFB800' }}>{attr}</span>=<span style={{ color: '#00D97E' }}>{rest.join('=')}</span></span>;
+                }
+                if (seg.startsWith('<')) return <span key={k} style={{ color: '#00B4D8' }}>{seg}</span>;
+                return <span key={k}>{seg}</span>;
+              })}</span>;
+            }
+            return <span key={j}>{part}</span>;
+          })}
+        </div>
+      ))}
+      {xml.split('\n').length > maxLines && <div style={{ color: '#4A6080' }}>... ({xml.split('\n').length - maxLines} more lines)</div>}
+    </pre>
+  );
+}
+
 export default function EmulatorLabPage() {
   const [activeTab, setActiveTab] = useState('scripts');
   // Scripts
@@ -40,7 +73,15 @@ export default function EmulatorLabPage() {
   const [txRows, setTxRows] = useState([]);
   const [txTotal, setTxTotal] = useState(0);
   const [txSearch, setTxSearch] = useState('');
+  const [txSelected, setTxSelected] = useState(null);
   const listRef = useRef(null);
+  // Live G2S Connection
+  const [liveConns, setLiveConns] = useState([]);
+  const [liveUrl, setLiveUrl] = useState('');
+  const [liveDeviceId, setLiveDeviceId] = useState('EGM-001');
+  const [liveCmdClass, setLiveCmdClass] = useState('cabinet');
+  const [liveCmdName, setLiveCmdName] = useState('getDeviceStatus');
+  const [liveResult, setLiveResult] = useState(null);
 
   useEffect(() => {
     api.get('/emulator-lab/scripts').then(r => setScripts(r.data));
@@ -93,6 +134,22 @@ export default function EmulatorLabPage() {
     loadTranscriptWindow(0);
   };
 
+  const connectLive = async () => {
+    const { data } = await api.post('/emulator-lab/smart-egm/connect-live', { session_id: sessionId, device_id: liveDeviceId, egm_url: liveUrl || undefined });
+    setLiveConns(prev => [...prev, data]);
+    api.get('/emulator-lab/smart-egm/live-status').then(r => setLiveConns(r.data.connections || []));
+  };
+
+  const sendLiveCommand = async () => {
+    const { data } = await api.post('/emulator-lab/smart-egm/send-live', { session_id: sessionId, command_class: liveCmdClass, command: liveCmdName });
+    setLiveResult(data);
+    loadTranscriptWindow(0);
+  };
+
+  const exportSession = () => {
+    window.open(`${API_URL}/api/emulator-lab/export-session/${sessionId}`, '_blank');
+  };
+
   const runScript = async () => {
     if (!selectedScript || running) return;
     setRunning(true); setScriptResult(null);
@@ -128,6 +185,7 @@ export default function EmulatorLabPage() {
   const tabs = [
     { id: 'scripts', label: 'Script Runner' },
     { id: 'egm', label: 'SmartEGM' },
+    { id: 'live', label: 'Live G2S' },
     { id: 'templates', label: 'Templates' },
     { id: 'tar', label: 'TAR Report' },
     { id: 'watchables', label: 'Watchables' },
@@ -354,6 +412,90 @@ export default function EmulatorLabPage() {
           </div>
         )}
 
+        {/* ═══ LIVE G2S CONNECTION ═══ */}
+        {activeTab === 'live' && (
+          <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="live-g2s-panel">
+            <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>Live G2S SOAP Connection</h3>
+            {/* Connect Form */}
+            <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>EGM SOAP Endpoint</label>
+                  <input data-testid="live-egm-url" value={liveUrl} onChange={e => setLiveUrl(e.target.value)} placeholder="https://egm-ip:8443/g2s (leave blank for virtual)"
+                    className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Device ID</label>
+                  <input value={liveDeviceId} onChange={e => setLiveDeviceId(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+                </div>
+                <div className="flex items-end">
+                  <button data-testid="connect-live-btn" onClick={connectLive} className="w-full flex items-center justify-center gap-2 py-2 rounded text-xs font-medium" style={{ background: '#00D97E', color: '#070B14' }}>
+                    <Plugs size={14} /> Connect
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* Command Builder */}
+            <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+              <div className="text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Send G2S Command</div>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Class</label>
+                  <select value={liveCmdClass} onChange={e => setLiveCmdClass(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
+                    {['cabinet', 'communications', 'gamePlay', 'meters', 'noteAcceptor', 'voucher', 'handpay', 'eventHandler', 'bonus', 'player', 'progressive', 'mediaDisplay', 'download', 'GAT'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Command</label>
+                  <select value={liveCmdName} onChange={e => setLiveCmdName(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
+                    {['getDeviceStatus', 'setDeviceState', 'commsOnLine', 'commsOnLineAck', 'setCommsState', 'keepAlive', 'getMeterInfo', 'setEventSub', 'getEventSub', 'commitVoucher', 'doVerification'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2 flex items-end gap-2">
+                  <button data-testid="send-live-cmd-btn" onClick={sendLiveCommand} className="flex-1 flex items-center justify-center gap-2 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
+                    <ArrowRight size={14} /> Send Command
+                  </button>
+                  <button data-testid="export-session-btn" onClick={exportSession} className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
+                    <Download size={14} /> Export ZIP
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* Last Result */}
+            {liveResult && (
+              <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: liveResult.status === 'error' ? '#FF3B3B30' : '#00D97E30' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: liveResult.status === 'error' ? 'rgba(255,59,59,0.1)' : 'rgba(0,217,126,0.1)', color: liveResult.status === 'error' ? '#FF3B3B' : '#00D97E' }}>{liveResult.status}</span>
+                  <span className="font-mono text-xs" style={{ color: '#F0F4FF' }}>{liveResult.class}.{liveResult.command}</span>
+                  {liveResult.ack_error && <span className="font-mono text-[10px]" style={{ color: '#FF3B3B' }}>ACK: {liveResult.ack_error}</span>}
+                  {liveResult.message_count && <span className="font-mono text-[10px]" style={{ color: '#4A6080' }}>msg #{liveResult.message_count}</span>}
+                </div>
+                {liveResult.response_commands?.length > 0 && (
+                  <div className="space-y-1">{liveResult.response_commands.map((cmd, i) => (
+                    <div key={i} className="text-[10px] font-mono px-2 py-1 rounded" style={{ background: '#111827' }}>
+                      <span style={{ color: '#00B4D8' }}>{cmd.element}</span>
+                      {Object.entries(cmd.attributes || {}).map(([k, v]) => <span key={k} className="ml-2"><span style={{ color: '#FFB800' }}>{k}</span>=<span style={{ color: '#00D97E' }}>"{v}"</span></span>)}
+                    </div>
+                  ))}</div>
+                )}
+                {liveResult.error && <div className="text-xs mt-1" style={{ color: '#FF3B3B' }}>{liveResult.error}</div>}
+              </div>
+            )}
+            {/* Live Connections */}
+            {liveConns.length > 0 && (
+              <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Active Connections</div>
+              {liveConns.map(c => (
+                <div key={c.session_id} className="flex items-center gap-3 px-3 py-2 rounded mb-1 text-xs" style={{ background: '#0C1322', border: '1px solid #1A2540' }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: '#00D97E' }} />
+                  <span className="font-mono" style={{ color: '#F0F4FF' }}>{c.device_id}</span>
+                  <span className="font-mono" style={{ color: '#4A6080' }}>{c.egm_url || 'virtual'}</span>
+                  <span className="font-mono" style={{ color: '#00B4D8' }}>{c.message_count} msgs</span>
+                </div>
+              ))}</div>
+            )}
+          </div>
+        )}
+
         {/* ═══ DEVICE TEMPLATES ═══ */}
         {activeTab === 'templates' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="templates-panel">
@@ -411,20 +553,27 @@ export default function EmulatorLabPage() {
                 <div className="h-full overflow-y-auto" style={{ background: '#070B14' }}>
                   {txRows.map((t, index) => {
                     const isErr = t.state === 'Error' || t.state === 'Special Error';
+                    const isExpanded = txSelected === (t.id || index);
                     return (
-                      <div className="flex items-center gap-2 px-4 py-1 text-[10px] font-mono border-b hover:bg-white/[0.02]"
-                        key={t.id || index}
-                        data-testid={`tx-row-${index}`}
-                        style={{ borderColor: '#1A254010', height: 32, background: isErr ? 'rgba(255,59,59,0.03)' : 'transparent' }}
-                      >
-                        <span className="w-14 flex-shrink-0" style={{ color: '#4A6080' }}>{t.occurred_at ? new Date(t.occurred_at).toLocaleTimeString() : ''}</span>
-                        {t.direction === 'TX' ? <ArrowRight size={10} style={{ color: '#00B4D8' }} /> : <ArrowLeft size={10} style={{ color: '#00D97E' }} />}
-                        <span className="w-5 flex-shrink-0" style={{ color: t.direction === 'TX' ? '#00B4D8' : '#00D97E' }}>{t.direction}</span>
-                        <span className="px-1 rounded flex-shrink-0" style={{ background: '#1A2540', color: '#00B4D8' }}>{t.channel}</span>
-                        <span className="flex-shrink-0" style={{ color: '#8BA3CC' }}>{t.command_class}</span>
-                        <span className="truncate" style={{ color: '#F0F4FF' }}>{t.command_name}</span>
-                        {isErr && <span className="px-1 rounded flex-shrink-0" style={{ background: 'rgba(255,59,59,0.15)', color: '#FF3B3B' }}>{t.state}</span>}
-                        {t.error_code && <span className="flex-shrink-0" style={{ color: '#FF3B3B' }}>{t.error_code}</span>}
+                      <div key={t.id || index} data-testid={`tx-row-${index}`}
+                        onClick={() => setTxSelected(isExpanded ? null : (t.id || index))}
+                        className="border-b cursor-pointer hover:bg-white/[0.02] transition-colors"
+                        style={{ borderColor: '#1A254010', background: isErr ? 'rgba(255,59,59,0.03)' : isExpanded ? 'rgba(0,180,216,0.03)' : 'transparent' }}>
+                        <div className="flex items-center gap-2 px-4 py-1 text-[10px] font-mono" style={{ height: 32 }}>
+                          <span className="w-14 flex-shrink-0" style={{ color: '#4A6080' }}>{t.occurred_at ? new Date(t.occurred_at).toLocaleTimeString() : ''}</span>
+                          {t.direction === 'TX' ? <ArrowRight size={10} style={{ color: '#00B4D8' }} /> : <ArrowLeft size={10} style={{ color: '#00D97E' }} />}
+                          <span className="w-5 flex-shrink-0" style={{ color: t.direction === 'TX' ? '#00B4D8' : '#00D97E' }}>{t.direction}</span>
+                          <span className="px-1 rounded flex-shrink-0" style={{ background: '#1A2540', color: '#00B4D8' }}>{t.channel}</span>
+                          <span className="flex-shrink-0" style={{ color: '#8BA3CC' }}>{t.command_class}</span>
+                          <span className="truncate" style={{ color: '#F0F4FF' }}>{t.command_name}</span>
+                          {isErr && <span className="px-1 rounded flex-shrink-0" style={{ background: 'rgba(255,59,59,0.15)', color: '#FF3B3B' }}>{t.state}</span>}
+                          {t.error_code && <span className="flex-shrink-0" style={{ color: '#FF3B3B' }}>{t.error_code}</span>}
+                        </div>
+                        {isExpanded && t.payload_xml && (
+                          <div className="px-4 pb-2" onClick={e => e.stopPropagation()}>
+                            <XmlHighlight xml={t.payload_xml} maxLines={25} />
+                          </div>
+                        )}
                       </div>
                     );
                   })}

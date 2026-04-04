@@ -1149,3 +1149,316 @@ async def seed_bulk_transcripts(request: Request):
         await db.lab_transcripts.insert_many(batch)
 
     return {"message": f"Seeded {count} transcripts", "session_id": session_id}
+
+
+# ══════════════════════════════════════════════════
+# SMART EGM ↔ REAL G2S SOAP ENDPOINT
+# ══════════════════════════════════════════════════
+
+import zipfile
+from lxml import etree as _etree
+
+G2S_NS = "http://www.gamingstandards.com/g2s/schemas/v1.0.3"
+
+
+def _build_g2s_soap_envelope(command_class: str, command: str, device_id: str, params: dict = None) -> str:
+    """Build a complete SOAP envelope wrapping a G2S command."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    root = _etree.Element("g2sMessage")
+    root.set("dateTimeSent", now)
+    header = _etree.SubElement(root, "g2sHeader")
+    header.set("sessionId", str(uuid.uuid4())[:8])
+    header.set("commandId", str(uuid.uuid4())[:8])
+    body = _etree.SubElement(root, "g2sBody")
+    cmd_el = _etree.SubElement(body, command)
+    cmd_el.set("deviceId", f"G2S_{device_id}")
+    cmd_el.set("deviceClass", f"G2S_{command_class}")
+    if params:
+        for k, v in params.items():
+            cmd_el.set(k, str(v))
+    inner_xml = _etree.tostring(root, pretty_print=True, xml_declaration=False, encoding="unicode")
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:g2s="{G2S_NS}">
+  <soap:Header/>
+  <soap:Body>
+    {inner_xml}
+  </soap:Body>
+</soap:Envelope>"""
+
+
+def _parse_soap_response(resp_text: str) -> dict:
+    """Parse a SOAP G2S response into structured data."""
+    try:
+        root = _etree.fromstring(resp_text.encode("utf-8") if isinstance(resp_text, str) else resp_text)
+        commands = []
+        for body in root.iter():
+            tag = _etree.QName(body.tag).localname if "}" in body.tag else body.tag
+            if tag in ("Envelope", "Header", "Body", "Fault"):
+                continue
+            attrs = {(_etree.QName(k).localname if "}" in k else k): v for k, v in body.attrib.items()}
+            if attrs:
+                commands.append({"element": tag, "attributes": attrs})
+        ack_err = None
+        for el in root.iter():
+            tag = _etree.QName(el.tag).localname if "}" in el.tag else el.tag
+            if "ack" in tag.lower():
+                for k, v in el.attrib.items():
+                    if "error" in k.lower():
+                        ack_err = v
+        return {"commands": commands, "ack_error": ack_err, "raw_xml": resp_text[:5000]}
+    except Exception as e:
+        return {"commands": [], "error": str(e), "raw_xml": resp_text[:5000]}
+
+
+# In-memory live SOAP connections
+_live_connections: dict = {}
+
+
+@router.post("/smart-egm/connect-live")
+async def connect_smart_egm_live(request: Request):
+    """Connect SmartEGM to a real G2S SOAP endpoint for live EGM testing."""
+    user = await get_current_user(request)
+    body = await request.json()
+    session_id = body.get("session_id", "live-" + str(uuid.uuid4())[:8])
+    egm_url = body.get("egm_url")
+    wsdl_url = body.get("wsdl_url")
+    device_id = body.get("device_id", "EGM001")
+    schema_version = body.get("schema_version", "G2S_2.1.0")
+    verify_ssl = body.get("verify_ssl", False)
+
+    if not egm_url and not wsdl_url:
+        # Virtual mode — no real endpoint, but still logs transcripts
+        egm_url = None
+
+    import httpx
+    http_client = httpx.AsyncClient(timeout=httpx.Timeout(30.0), verify=verify_ssl)
+
+    conn = {
+        "session_id": session_id,
+        "egm_url": egm_url,
+        "wsdl_url": wsdl_url,
+        "device_id": device_id,
+        "schema_version": schema_version,
+        "http_client": http_client,
+        "message_count": 0,
+        "last_message_at": None,
+        "status": "CONNECTED",
+        "errors": [],
+    }
+    _live_connections[session_id] = conn
+
+    # Send commsOnLine handshake
+    result = await _send_live_g2s(session_id, "communications", "commsOnLine", {})
+    return {"session_id": session_id, "status": "CONNECTED", "handshake": result, "egm_url": egm_url}
+
+
+@router.post("/smart-egm/send-live")
+async def send_live_g2s_command(request: Request):
+    """Send a G2S command to the connected live EGM."""
+    user = await get_current_user(request)
+    body = await request.json()
+    session_id = body.get("session_id")
+    command_class = body.get("command_class", "cabinet")
+    command = body.get("command", "getDeviceStatus")
+    params = body.get("params", {})
+
+    result = await _send_live_g2s(session_id, command_class, command, params)
+    return result
+
+
+async def _send_live_g2s(session_id: str, command_class: str, command: str, params: dict) -> dict:
+    conn = _live_connections.get(session_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="No live connection for this session")
+
+    egm_url = conn["egm_url"]
+    device_id = conn["device_id"]
+    now = datetime.now(timezone.utc).isoformat()
+    conn["message_count"] += 1
+    conn["last_message_at"] = now
+
+    soap_xml = _build_g2s_soap_envelope(command_class, command, device_id, params)
+
+    # Store TX transcript
+    await db.lab_transcripts.insert_one({
+        "id": str(uuid.uuid4()), "session_id": session_id,
+        "direction": "TX", "channel": "SOAP", "command_class": f"G2S_{command_class}",
+        "command_name": command, "session_type": "Request",
+        "payload_xml": soap_xml, "state": "Standard", "occurred_at": now,
+    })
+    await db.lab_transcripts.insert_one({
+        "id": str(uuid.uuid4()), "session_id": session_id,
+        "direction": "TX", "channel": "G2S", "command_class": f"G2S_{command_class}",
+        "command_name": command, "session_type": "Request",
+        "payload_xml": f'<g2s:{command} deviceId="G2S_{device_id}" deviceClass="G2S_{command_class}" />',
+        "state": "Standard", "occurred_at": now,
+    })
+
+    if not egm_url:
+        return {"status": "virtual", "message": "No egm_url — command logged but not sent", "command": command}
+
+    try:
+        http_client = conn["http_client"]
+        response = await http_client.post(
+            egm_url,
+            content=soap_xml.encode("utf-8"),
+            headers={"Content-Type": "text/xml; charset=utf-8", "SOAPAction": f'"urn:G2S:{command}"'},
+        )
+        resp_text = response.text
+
+        # Parse response
+        parsed = _parse_soap_response(resp_text)
+
+        # Store RX transcript (SOAP + G2S channels)
+        await db.lab_transcripts.insert_one({
+            "id": str(uuid.uuid4()), "session_id": session_id,
+            "direction": "RX", "channel": "SOAP", "command_class": f"G2S_{command_class}",
+            "command_name": f"{command}Ack" if parsed["commands"] else "response",
+            "session_type": "Response", "payload_xml": resp_text[:10000],
+            "state": "Error" if parsed.get("ack_error") and parsed["ack_error"] != "G2S_none" else "Standard",
+            "error_code": parsed.get("ack_error"), "occurred_at": now,
+        })
+        for cmd in parsed.get("commands", []):
+            await db.lab_transcripts.insert_one({
+                "id": str(uuid.uuid4()), "session_id": session_id,
+                "direction": "RX", "channel": "G2S", "command_class": f"G2S_{command_class}",
+                "command_name": cmd["element"], "session_type": "Response",
+                "payload_xml": json.dumps(cmd.get("attributes", {})),
+                "state": "Standard", "occurred_at": now,
+            })
+
+        return {
+            "status": "sent", "http_status": response.status_code,
+            "command": command, "class": command_class,
+            "response_commands": parsed.get("commands", []),
+            "ack_error": parsed.get("ack_error"),
+            "message_count": conn["message_count"],
+        }
+
+    except Exception as e:
+        conn["errors"].append({"time": now, "error": str(e)})
+        await db.lab_transcripts.insert_one({
+            "id": str(uuid.uuid4()), "session_id": session_id,
+            "direction": "RX", "channel": "SOAP", "command_class": f"G2S_{command_class}",
+            "command_name": "error", "session_type": "Error",
+            "payload_xml": str(e), "state": "Error",
+            "error_code": "TRANSPORT_ERROR", "occurred_at": now,
+        })
+        return {"status": "error", "command": command, "error": str(e)}
+
+
+@router.get("/smart-egm/live-status")
+async def get_live_connections(request: Request):
+    await get_current_user(request)
+    conns = []
+    for sid, c in _live_connections.items():
+        conns.append({
+            "session_id": sid, "egm_url": c["egm_url"], "device_id": c["device_id"],
+            "schema_version": c["schema_version"], "status": c["status"],
+            "message_count": c["message_count"], "last_message_at": c["last_message_at"],
+            "error_count": len(c["errors"]),
+        })
+    return {"connections": conns}
+
+
+@router.post("/smart-egm/disconnect-live/{session_id}")
+async def disconnect_live(request: Request, session_id: str):
+    await get_current_user(request)
+    conn = _live_connections.pop(session_id, None)
+    if conn and conn.get("http_client"):
+        await conn["http_client"].aclose()
+    return {"message": f"Disconnected {session_id}"}
+
+
+# ══════════════════════════════════════════════════
+# DEBUG SESSION ZIP EXPORT
+# ══════════════════════════════════════════════════
+
+@router.get("/export-session/{session_id}")
+async def export_debug_session_zip(request: Request, session_id: str):
+    """Export a complete debug session as ZIP containing all 3 transcript channels + metadata."""
+    await get_current_user(request)
+
+    # Gather all transcripts by channel
+    all_transcripts = await db.lab_transcripts.find({"session_id": session_id}, {"_id": 0}).sort("occurred_at", 1).to_list(100000)
+
+    g2s_msgs = [t for t in all_transcripts if t.get("channel") == "G2S"]
+    soap_msgs = [t for t in all_transcripts if t.get("channel") == "SOAP"]
+    protocol_msgs = [t for t in all_transcripts if t.get("channel") == "PROTOCOL_TRACE"]
+
+    # Get script runs for this session
+    script_runs = await db.lab_script_runs.find({"session_id": session_id}, {"_id": 0}).to_list(100)
+
+    # Get TAR reports
+    tar_reports = await db.lab_tar_reports.find({"session_id": session_id}, {"_id": 0}).to_list(10)
+
+    # Get EGM state
+    egm_state = _smart_egm_state.get(session_id)
+
+    now = datetime.now(timezone.utc)
+    metadata = {
+        "session_id": session_id,
+        "exported_at": now.isoformat(),
+        "total_transcripts": len(all_transcripts),
+        "g2s_message_count": len(g2s_msgs),
+        "soap_message_count": len(soap_msgs),
+        "protocol_trace_count": len(protocol_msgs),
+        "script_run_count": len(script_runs),
+        "tar_report_count": len(tar_reports),
+        "ugg_version": "1.0.0",
+        "export_format": "UGG Debug Session v1",
+    }
+
+    # Build ZIP in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 1. Metadata
+        zf.writestr("session_metadata.json", json.dumps(metadata, indent=2, default=str))
+
+        # 2. G2S Messages channel
+        g2s_lines = []
+        for t in g2s_msgs:
+            g2s_lines.append(f"[{t.get('occurred_at','')}] {t.get('direction','?')} {t.get('command_class','')}.{t.get('command_name','')} | {t.get('state','Standard')}")
+            if t.get("payload_xml"):
+                g2s_lines.append(f"  XML: {t['payload_xml'][:500]}")
+            g2s_lines.append("")
+        zf.writestr("g2s_messages.log", "\n".join(g2s_lines))
+        zf.writestr("g2s_messages.json", json.dumps(g2s_msgs, indent=2, default=str))
+
+        # 3. SOAP Transport channel
+        soap_lines = []
+        for t in soap_msgs:
+            soap_lines.append(f"[{t.get('occurred_at','')}] {t.get('direction','?')} {t.get('command_name','')}")
+            if t.get("payload_xml"):
+                soap_lines.append(t["payload_xml"][:2000])
+            soap_lines.append("---")
+        zf.writestr("soap_transport.log", "\n".join(soap_lines))
+        zf.writestr("soap_transport.json", json.dumps(soap_msgs, indent=2, default=str))
+
+        # 4. Protocol Trace channel
+        proto_lines = []
+        for t in protocol_msgs:
+            proto_lines.append(f"[{t.get('occurred_at','')}] {t.get('direction','?')} {t.get('command_name','')}")
+            if t.get("payload_raw"):
+                proto_lines.append(f"  HEX: {t['payload_raw']}")
+            proto_lines.append("")
+        zf.writestr("protocol_trace.log", "\n".join(proto_lines))
+        zf.writestr("protocol_trace.json", json.dumps(protocol_msgs, indent=2, default=str))
+
+        # 5. Script runs
+        if script_runs:
+            zf.writestr("script_runs.json", json.dumps(script_runs, indent=2, default=str))
+
+        # 6. TAR reports
+        if tar_reports:
+            zf.writestr("tar_reports.json", json.dumps(tar_reports, indent=2, default=str))
+
+        # 7. EGM state snapshot
+        if egm_state:
+            safe_state = {**egm_state, "doors_open": list(egm_state.get("doors_open", set())), "events": egm_state.get("events", [])[-50:]}
+            zf.writestr("egm_state.json", json.dumps(safe_state, indent=2, default=str))
+
+    zip_buffer.seek(0)
+    filename = f"ugg_debug_session_{session_id}_{now.strftime('%Y%m%d_%H%M%S')}.zip"
+    return StreamingResponse(zip_buffer, media_type="application/zip", headers={"Content-Disposition": f"attachment; filename={filename}"})
