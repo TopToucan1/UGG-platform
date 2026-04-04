@@ -28,6 +28,8 @@ import ProxyControlPage from '@/pages/ProxyControlPage';
 import FleetDashboardPage from '@/pages/FleetDashboardPage';
 import ComplianceBrowserPage from '@/pages/ComplianceBrowserPage';
 import AIAnalyticsPage from '@/pages/AIAnalyticsPage';
+import HardwarePage from '@/pages/HardwarePage';
+import DocsLibraryPage from '@/pages/DocsLibraryPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -91,6 +93,8 @@ function AppRoutes() {
       <Route path="/fleet" element={<ProtectedRoute><FleetDashboardPage /></ProtectedRoute>} />
       <Route path="/compliance" element={<ProtectedRoute><ComplianceBrowserPage /></ProtectedRoute>} />
       <Route path="/ai-analytics" element={<ProtectedRoute><AIAnalyticsPage /></ProtectedRoute>} />
+      <Route path="/hardware" element={<ProtectedRoute><HardwarePage /></ProtectedRoute>} />
+      <Route path="/docs" element={<ProtectedRoute><DocsLibraryPage /></ProtectedRoute>} />
       <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

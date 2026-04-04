@@ -34,6 +34,8 @@ const navItems = [
   { path: '/alerts', label: 'Exceptions', icon: Bell },
   { path: '/messages', label: 'Messages', icon: ChatCircleDots },
   { path: '/export', label: 'Export', icon: FileArrowDown },
+  { path: '/hardware', label: 'Hardware', icon: Cpu },
+  { path: '/docs', label: 'Documentation', icon: BookOpen },
   { path: '/settings', label: 'Settings', icon: GearSix },
 ];
 
