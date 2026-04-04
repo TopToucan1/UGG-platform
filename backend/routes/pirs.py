@@ -417,3 +417,316 @@ async def seed_pirs():
     await db.pirs_players.create_index("segment_code")
     await db.pirs_players.create_index("player_id", unique=True)
     logging.getLogger(__name__).info(f"Seeded PIRS: {len(players)} players, {len(awards)} POC awards")
+
+
+# ══════════════════════════════════════════════════
+# OPERATOR CONFIGURATION — Full control over rewards
+# ══════════════════════════════════════════════════
+
+DEFAULT_CONFIG = {
+    "budget_daily_limit": 500,
+    "budget_weekly_limit": 2500,
+    "budget_monthly_limit": 10000,
+    "budget_per_player_daily": 50,
+    "budget_per_player_session": 25,
+    "min_poc_amount": 5,
+    "max_poc_amount": 100,
+    "auto_rules_enabled": True,
+    "auto_score_recalc_interval_min": 15,
+    "auto_scale_rewards": True,
+    "happy_hour_enabled": False,
+    "happy_hour_start": "16:00",
+    "happy_hour_end": "18:00",
+    "happy_hour_multiplier": 1.5,
+    "weekend_multiplier": 1.0,
+    "new_player_welcome_poc": 10,
+    "responsible_gambling_session_limit_min": 240,
+}
+
+
+@router.get("/config")
+async def get_pirs_config(request: Request):
+    await get_current_user(request)
+    config = await db.pirs_config.find_one({"type": "global"}, {"_id": 0})
+    if not config:
+        config = {**DEFAULT_CONFIG, "type": "global", "updated_at": None}
+        await db.pirs_config.insert_one(config)
+        config.pop("_id", None)
+    return config
+
+
+@router.post("/config")
+async def update_pirs_config(request: Request):
+    """Operator updates reward configuration — budgets, amounts, schedules."""
+    user = await get_current_user(request)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    # Validate budget values
+    if body.get("min_poc_amount", 1) < 1:
+        raise HTTPException(status_code=400, detail="Minimum POC amount must be at least $1")
+    if body.get("max_poc_amount", 100) > 500:
+        raise HTTPException(status_code=400, detail="Maximum POC amount cannot exceed $500")
+    if body.get("budget_daily_limit", 100) < 10:
+        raise HTTPException(status_code=400, detail="Daily budget must be at least $10")
+
+    update = {k: v for k, v in body.items() if k in DEFAULT_CONFIG}
+    update["updated_at"] = now
+    update["updated_by"] = user.get("email")
+    await db.pirs_config.update_one({"type": "global"}, {"$set": update}, upsert=True)
+
+    # Audit
+    await db.audit_records.insert_one({"id": str(uuid.uuid4()), "tenant_id": None, "actor": user.get("email"), "action": "pirs.config_updated", "target_type": "pirs_config", "target_id": "global", "before": None, "after": update, "evidence_ref": None, "timestamp": now})
+    return {"message": "PIRS configuration updated", "config": update}
+
+
+# ══════════════════════════════════════════════════
+# EDITABLE RULES — Operators create/edit/delete
+# ══════════════════════════════════════════════════
+
+@router.post("/rules/create")
+async def create_custom_rule(request: Request):
+    """Operator creates a fully custom reward rule."""
+    user = await get_current_user(request)
+    body = await request.json()
+    rule = {
+        "id": str(uuid.uuid4()),
+        "name": body.get("name", "Custom Rule"),
+        "trigger": body.get("trigger", "coin_in_milestone"),
+        "condition_churn_min": body.get("condition_churn_min"),
+        "condition_churn_max": body.get("condition_churn_max"),
+        "condition_coin_in": body.get("condition_coin_in"),
+        "condition_mins": body.get("condition_mins"),
+        "condition_lapse_min": body.get("condition_lapse_min"),
+        "condition_days_absent": body.get("condition_days_absent"),
+        "condition_time_window": body.get("condition_time_window"),  # "weekdays", "weekends", "happy_hour", "always"
+        "poc_fixed": body.get("poc_fixed", 10),
+        "poc_percent_of_loss": body.get("poc_percent_of_loss"),  # e.g., 0.05 = 5% of session loss
+        "max_per_day": body.get("max_per_day", 1),
+        "max_per_session": body.get("max_per_session"),
+        "cooldown_min": body.get("cooldown_min", 60),
+        "message_template": body.get("message_template", "You've earned ${amount} in Play Only Credits!"),
+        "is_active": True,
+        "is_custom": True,
+        "created_by": user.get("email"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.pirs_rules.insert_one(rule)
+    rule.pop("_id", None)
+    return rule
+
+
+@router.put("/rules/{rule_id}")
+async def update_rule(request: Request, rule_id: str):
+    """Operator edits any rule — change amounts, conditions, schedules."""
+    user = await get_current_user(request)
+    body = await request.json()
+    allowed_fields = ["name", "trigger", "condition_churn_min", "condition_churn_max", "condition_coin_in", "condition_mins", "condition_lapse_min", "condition_days_absent", "condition_time_window", "poc_fixed", "poc_percent_of_loss", "max_per_day", "max_per_session", "cooldown_min", "message_template", "is_active"]
+    update = {k: v for k, v in body.items() if k in allowed_fields}
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    update["updated_by"] = user.get("email")
+    result = await db.pirs_rules.update_one({"id": rule_id}, {"$set": update})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {"message": "Rule updated", "rule_id": rule_id}
+
+
+@router.delete("/rules/{rule_id}")
+async def delete_rule(request: Request, rule_id: str):
+    user = await get_current_user(request)
+    result = await db.pirs_rules.delete_one({"id": rule_id, "is_custom": True})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=400, detail="Cannot delete system rules — toggle them off instead")
+    return {"message": "Custom rule deleted"}
+
+
+# ══════════════════════════════════════════════════
+# AUTOMATIC RULE ENGINE — Runs rules against live players
+# ══════════════════════════════════════════════════
+
+@router.post("/engine/run")
+async def run_pirs_engine(request: Request):
+    """Execute all active rules against current player state. Awards POC automatically."""
+    user = await get_current_user(request)
+    config = await db.pirs_config.find_one({"type": "global"}, {"_id": 0}) or DEFAULT_CONFIG
+    rules = await db.pirs_rules.find({"is_active": True}, {"_id": 0}).to_list(100)
+    players = await db.pirs_players.find({}, {"_id": 0}).to_list(500)
+
+    if not config.get("auto_rules_enabled", True):
+        return {"message": "Auto rules disabled in config", "awards": 0}
+
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    current_hour = now.hour
+    is_weekend = now.weekday() >= 5
+    is_happy_hour = config.get("happy_hour_enabled") and config.get("happy_hour_start", "16:00") <= now.strftime("%H:%M") <= config.get("happy_hour_end", "18:00")
+
+    # Budget tracking
+    today_spent_agg = await db.poc_awards.aggregate([{"$match": {"created_at": {"$gte": today}}}, {"$group": {"_id": None, "total": {"$sum": "$poc_amount"}}}]).to_list(1)
+    today_spent = today_spent_agg[0]["total"] if today_spent_agg else 0
+    budget_remaining = config.get("budget_daily_limit", 500) - today_spent
+
+    awards_given = 0
+    awards_skipped_budget = 0
+    awards_skipped_cooldown = 0
+
+    for player in players:
+        pid = player["player_id"]
+        score = player.get("churn_score", 0)
+        lapse = player.get("lapse_risk", 0)
+        tier = get_tier(score)
+
+        # Per-player daily limit check
+        player_today_agg = await db.poc_awards.aggregate([{"$match": {"player_id": pid, "created_at": {"$gte": today}}}, {"$group": {"_id": None, "total": {"$sum": "$poc_amount"}}}]).to_list(1)
+        player_today = player_today_agg[0]["total"] if player_today_agg else 0
+        player_budget_remaining = config.get("budget_per_player_daily", 50) - player_today
+
+        for rule in rules:
+            # Time window check
+            tw = rule.get("condition_time_window", "always")
+            if tw == "weekdays" and is_weekend:
+                continue
+            if tw == "weekends" and not is_weekend:
+                continue
+            if tw == "happy_hour" and not is_happy_hour:
+                continue
+
+            # Churn score check
+            if rule.get("condition_churn_min") and score < rule["condition_churn_min"]:
+                continue
+            if rule.get("condition_churn_max") and score > rule["condition_churn_max"]:
+                continue
+
+            # Lapse risk check
+            if rule.get("condition_lapse_min") and lapse < rule["condition_lapse_min"]:
+                continue
+
+            # Cooldown check
+            cooldown = rule.get("cooldown_min", 60)
+            last_award = await db.poc_awards.find_one({"player_id": pid, "rule_id": rule["id"]}, {"_id": 0, "created_at": 1})
+            if last_award:
+                try:
+                    last_dt = datetime.fromisoformat(last_award["created_at"].replace("Z", "+00:00"))
+                    if (now - last_dt).total_seconds() / 60 < cooldown:
+                        awards_skipped_cooldown += 1
+                        continue
+                except (ValueError, TypeError):
+                    pass
+
+            # Max per day check
+            if rule.get("max_per_day"):
+                day_count = await db.poc_awards.count_documents({"player_id": pid, "rule_id": rule["id"], "created_at": {"$gte": today}})
+                if day_count >= rule["max_per_day"]:
+                    continue
+
+            # Calculate POC amount
+            poc = rule.get("poc_fixed", 10)
+            if rule.get("poc_percent_of_loss"):
+                session_loss = max(0, player.get("coin_in_30d", 0) - player.get("coin_in_30d", 0) * player.get("play_back_rate", 0.5))
+                poc = max(poc, round(session_loss * rule["poc_percent_of_loss"], 2))
+
+            # Apply tier multiplier
+            poc = round(poc * tier["poc_multiplier"], 2)
+
+            # Apply happy hour / weekend multiplier
+            if is_happy_hour:
+                poc = round(poc * config.get("happy_hour_multiplier", 1.5), 2)
+            if is_weekend and config.get("weekend_multiplier", 1.0) != 1.0:
+                poc = round(poc * config["weekend_multiplier"], 2)
+
+            # Enforce limits
+            poc = max(config.get("min_poc_amount", 5), min(poc, config.get("max_poc_amount", 100)))
+
+            # Budget checks
+            if poc > budget_remaining:
+                awards_skipped_budget += 1
+                continue
+            if poc > player_budget_remaining:
+                awards_skipped_budget += 1
+                continue
+
+            # Award!
+            msg = rule.get("message_template", "You've earned ${amount} in Play Only Credits!").replace("{amount}", f"${poc:.2f}")
+            award = {
+                "id": str(uuid.uuid4()), "player_id": pid, "player_name": player.get("player_name", ""),
+                "egm_id": player.get("last_egm_id"), "trigger_type": rule.get("trigger", "auto_rule"),
+                "rule_id": rule["id"], "rule_name": rule.get("name", ""),
+                "poc_amount": poc, "poc_type": "play_only_credits",
+                "churn_score_at_award": score, "tier_at_award": tier["name"], "tier_multiplier": tier["poc_multiplier"],
+                "message_text": msg, "delivery_status": "delivered",
+                "delivered_at": now.isoformat(), "awarded_by": "PIRS_ENGINE",
+                "created_at": now.isoformat(),
+            }
+            await db.poc_awards.insert_one(award)
+            await db.pirs_players.update_one({"player_id": pid}, {"$inc": {"total_poc_awarded": poc, "poc_awards_count": 1}})
+            budget_remaining -= poc
+            player_budget_remaining -= poc
+            awards_given += 1
+
+            # Push to device messaging if player has active EGM
+            if player.get("last_egm_id"):
+                await db.device_messages.insert_one({
+                    "id": str(uuid.uuid4()), "device_id": player["last_egm_id"],
+                    "message_text": msg, "message_type": "PROMO",
+                    "display_duration_seconds": 15, "display_position": "CENTER",
+                    "background_color": "#FFD700", "text_color": "#070B14",
+                    "priority": "HIGH",
+                    "expires_at": (now + timedelta(hours=1)).isoformat(),
+                    "sent_by": "PIRS_ENGINE", "sent_at": now.isoformat(), "status": "PENDING",
+                })
+
+            if budget_remaining <= 0:
+                break
+        if budget_remaining <= 0:
+            break
+
+    # Auto-recalculate scores if configured
+    scores_updated = 0
+    if config.get("auto_scale_rewards", True):
+        for player in players:
+            new_score = calculate_churn_score(player)
+            new_lapse = calculate_lapse_risk(player)
+            new_seg = get_segment(new_score)
+            new_tier = get_tier(new_score)
+            await db.pirs_players.update_one({"player_id": player["player_id"]}, {"$set": {
+                "churn_score_prev": player.get("churn_score", 0),
+                "churn_score": new_score, "lapse_risk": round(new_lapse, 1),
+                "segment_code": new_seg["segment"], "segment_label": new_seg["label"],
+                "tier_id": new_tier["id"], "tier_name": new_tier["name"],
+                "churn_score_trend": "rising" if new_score > player.get("churn_score", 0) else "declining" if new_score < player.get("churn_score", 0) else "stable",
+            }})
+            scores_updated += 1
+
+    return {
+        "message": "PIRS engine run complete",
+        "awards_given": awards_given,
+        "awards_skipped_budget": awards_skipped_budget,
+        "awards_skipped_cooldown": awards_skipped_cooldown,
+        "budget_spent_today": today_spent + sum(1 for _ in range(awards_given)),
+        "budget_remaining": budget_remaining,
+        "players_evaluated": len(players),
+        "rules_evaluated": len(rules),
+        "scores_recalculated": scores_updated,
+        "is_happy_hour": is_happy_hour,
+        "is_weekend": is_weekend,
+    }
+
+
+@router.get("/engine/status")
+async def engine_status(request: Request):
+    await get_current_user(request)
+    config = await db.pirs_config.find_one({"type": "global"}, {"_id": 0}) or DEFAULT_CONFIG
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    spent_agg = await db.poc_awards.aggregate([{"$match": {"created_at": {"$gte": today}}}, {"$group": {"_id": None, "total": {"$sum": "$poc_amount"}, "count": {"$sum": 1}}}]).to_list(1)
+    spent = spent_agg[0] if spent_agg else {}
+    active_rules = await db.pirs_rules.count_documents({"is_active": True})
+    total_rules = await db.pirs_rules.count_documents({})
+    return {
+        "auto_enabled": config.get("auto_rules_enabled", True),
+        "budget_daily": config.get("budget_daily_limit", 500),
+        "budget_spent_today": spent.get("total", 0),
+        "budget_remaining": config.get("budget_daily_limit", 500) - spent.get("total", 0),
+        "awards_today": spent.get("count", 0),
+        "active_rules": active_rules,
+        "total_rules": total_rules,
+        "config": config,
+    }
