@@ -22,6 +22,7 @@ import RouteOpsPage from '@/pages/RouteOpsPage';
 import RegulatoryDashboardPage from '@/pages/RegulatoryDashboardPage';
 import RouteMapPage from '@/pages/RouteMapPage';
 import CertificationPage from '@/pages/CertificationPage';
+import DigitalTwinPage from '@/pages/DigitalTwinPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -79,6 +80,7 @@ function AppRoutes() {
       <Route path="/regulatory" element={<ProtectedRoute><RegulatoryDashboardPage /></ProtectedRoute>} />
       <Route path="/map" element={<ProtectedRoute><RouteMapPage /></ProtectedRoute>} />
       <Route path="/certification" element={<ProtectedRoute><CertificationPage /></ProtectedRoute>} />
+      <Route path="/digital-twin" element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
       <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

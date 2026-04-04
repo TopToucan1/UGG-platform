@@ -24,6 +24,7 @@ const navItems = [
   { path: '/ai-studio', label: 'AI Studio', icon: Robot },
   { path: '/emulator', label: 'Emulator Lab', icon: Flask },
   { path: '/certification', label: 'Certification', icon: ShieldCheck },
+  { path: '/digital-twin', label: 'Digital Twin', icon: Cpu },
   { path: '/audit', label: 'Audit Explorer', icon: ListMagnifyingGlass },
   { path: '/alerts', label: 'Exceptions', icon: Bell },
   { path: '/messages', label: 'Messages', icon: ChatCircleDots },
