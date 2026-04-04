@@ -35,6 +35,7 @@ from routes.route_advanced import router as route_advanced_router
 from routes.route_map import router as route_map_router
 from routes.certification import router as certification_router
 from routes.adapters import router as adapters_router
+from routes.gateway import router as gateway_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ app.include_router(route_advanced_router)
 app.include_router(route_map_router)
 app.include_router(certification_router)
 app.include_router(adapters_router)
+app.include_router(gateway_router)
 
 
 @app.get("/api")
@@ -100,7 +102,10 @@ async def startup():
     # Start real-time event generator
     from routes.events import start_event_generator
     start_event_generator()
-    logger.info("UGG Platform ready — real-time event generator active")
+    # Start Gateway Core event pipeline
+    from gateway_core import gateway_core
+    await gateway_core.start()
+    logger.info("UGG Platform ready — real-time event generator + Gateway Core active")
 
 
 @app.on_event("shutdown")
