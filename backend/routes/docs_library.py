@@ -973,6 +973,430 @@ Regulators require that all game software is approved and unmodified. UGG's Cont
 
 **This makes testing realistic** — instead of using generic settings, the Emulator Lab simulates YOUR exact EGM with YOUR denominations, YOUR supported classes, and YOUR win probability distribution."""},
     ]},
+
+    {"id": "indie-nocode", "title": "Indie & NoCode Developers", "icon": "Rocket", "docs": [
+        {"id": "indie-welcome", "title": "Welcome, Indie Game Developer!", "content": """**You built a game. Now you want it to work with real gaming systems. This guide is for you.**
+
+If you built your game using a NoCode platform (like Bubble, Adalo, FlutterFlow, Buildship, Make, Zapier, n8n, or similar), or you're a solo developer who isn't a protocol engineer — this section will hold your hand through every single step.
+
+**You do NOT need to know:**
+- What SAS or G2S protocols are
+- How serial ports work
+- How to write Python or JavaScript code
+- What SOAP or XML is
+- Anything about gaming regulations
+
+**What you DO need:**
+- Your game running on a computer (Windows, Mac, or Linux)
+- Your game can do ONE of these things:
+  - Send data to a web address (HTTP/REST) — this is what most NoCode tools do
+  - Write data to a database
+  - Write data to a file (CSV, JSON, or text log)
+- An internet connection
+
+**The big picture:**
+Your game produces data: "someone played," "someone won," "money went in," "money came out." UGG needs to receive that data in a specific format. We'll show you exactly what format, give you copy-paste templates, and walk you through connecting everything.
+
+**Time to get connected: About 2-4 hours following this guide.**"""},
+
+        {"id": "indie-what-ugg-needs", "title": "What UGG Needs From Your Game", "content": """**UGG needs your game to send 6 types of events. That's it.**
+
+Think of these as messages your game sends to UGG every time something happens:
+
+**1. Game Started** — "A player just started playing"
+Send this when a player begins a new round/spin/hand.
+Data needed: how much they bet
+
+**2. Game Ended** — "The round is over"
+Send this when the round finishes.
+Data needed: how much they bet, how much they won (0 if they lost)
+
+**3. Money In** — "Money was added to the machine"
+Send this when a player inserts cash, loads credits, or redeems a voucher.
+Data needed: amount added, type (cash, voucher, or electronic)
+
+**4. Money Out** — "Money was removed from the machine"
+Send this when a player cashes out or a voucher is printed.
+Data needed: amount removed
+
+**5. Machine Status** — "I'm online" or "I'm offline"
+Send this when your game starts up and when it shuts down.
+
+**6. Error/Alert** — "Something went wrong"
+Send this if your game encounters a problem (optional but recommended).
+Data needed: what went wrong
+
+**That's the complete list.** If your game can send those 6 messages to a web address, you can connect to UGG."""},
+
+        {"id": "indie-easiest-method", "title": "The Easiest Way to Connect (REST API)", "content": """**The simplest path: Send HTTP POST requests to UGG's API.**
+
+Every NoCode platform can send HTTP requests. Here's exactly what to send:
+
+**The UGG API endpoint your game will talk to:**
+`https://your-ugg-server.com/api/events`
+
+**What to send (JSON format):**
+Every time something happens in your game, send a POST request with this format:
+
+```json
+{
+  "device_id": "MY-GAME-001",
+  "event_type": "device.game.end",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "2026-01-15T14:30:00Z",
+  "severity": "info",
+  "payload": {
+    "bet": 5.00,
+    "win": 12.50,
+    "game_id": 42
+  }
+}
+```
+
+**Let's break down each field:**
+- **device_id** — A unique name for your game machine. Pick anything like "MY-GAME-001" or "LOBBY-KIOSK-3". Keep it the same every time for the same machine.
+- **event_type** — What happened. Use these exact values:
+  - `device.game.start` — Player started a round
+  - `device.game.end` — Round finished
+  - `device.voucher.in` — Money added
+  - `device.voucher.out` — Money removed/cashed out
+  - `device.status.online` — Game is running
+  - `device.status.offline` — Game shut down
+  - `device.tilt` — Error occurred
+- **protocol** — Always use `"PROPRIETARY"` (this tells UGG you're not using SAS or G2S)
+- **occurred_at** — The date and time. Use this format: YYYY-MM-DDTHH:MM:SSZ
+- **severity** — How important: `"info"` for normal events, `"warning"` for alerts, `"critical"` for errors
+- **payload** — The details. Different for each event type (see the templates below)"""},
+
+        {"id": "indie-templates", "title": "Copy-Paste Event Templates", "content": """**Copy these templates and fill in your values. One for each event type:**
+
+**Template 1: Game Started**
+```json
+{
+  "device_id": "YOUR-GAME-ID",
+  "event_type": "device.game.start",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "PASTE-CURRENT-TIMESTAMP",
+  "severity": "info",
+  "payload": {
+    "bet": 0.00,
+    "denomination": 0.25,
+    "game_title": "Your Game Name"
+  }
+}
+```
+Replace: YOUR-GAME-ID with your machine name, bet with the wager amount, denomination with the base credit value
+
+**Template 2: Game Ended (with win/loss)**
+```json
+{
+  "device_id": "YOUR-GAME-ID",
+  "event_type": "device.game.end",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "PASTE-CURRENT-TIMESTAMP",
+  "severity": "info",
+  "payload": {
+    "bet": 5.00,
+    "win": 12.50,
+    "game_title": "Your Game Name",
+    "credits_remaining": 100
+  }
+}
+```
+Replace: bet with wager amount, win with amount won (use 0 for a loss)
+
+**Template 3: Money Inserted**
+```json
+{
+  "device_id": "YOUR-GAME-ID",
+  "event_type": "device.voucher.in",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "PASTE-CURRENT-TIMESTAMP",
+  "severity": "info",
+  "payload": {
+    "amount": 20.00,
+    "type": "cash"
+  }
+}
+```
+Replace: amount with dollars inserted, type with "cash", "voucher", or "electronic"
+
+**Template 4: Cash Out**
+```json
+{
+  "device_id": "YOUR-GAME-ID",
+  "event_type": "device.voucher.out",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "PASTE-CURRENT-TIMESTAMP",
+  "severity": "info",
+  "payload": {
+    "amount": 35.00
+  }
+}
+```
+
+**Template 5: Machine Online**
+```json
+{
+  "device_id": "YOUR-GAME-ID",
+  "event_type": "device.status.online",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "PASTE-CURRENT-TIMESTAMP",
+  "severity": "info",
+  "payload": {
+    "game_title": "Your Game Name",
+    "version": "1.0"
+  }
+}
+```
+
+**Template 6: Error**
+```json
+{
+  "device_id": "YOUR-GAME-ID",
+  "event_type": "device.tilt",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "PASTE-CURRENT-TIMESTAMP",
+  "severity": "warning",
+  "payload": {
+    "reason": "Describe what went wrong"
+  }
+}
+```"""},
+
+        {"id": "indie-nocode-bubble", "title": "Connecting from Bubble.io", "content": """**Step-by-step for Bubble.io users:**
+
+**Step 1: Set up the API connection**
+1. In your Bubble app, go to **Plugins** > **API Connector**
+2. Click **Add another API**
+3. Name it "UGG Gaming Gateway"
+4. Authentication: None (or Bearer Token if your UGG requires it)
+
+**Step 2: Create the API call**
+1. Click **Add another call**
+2. Name it "Send Game Event"
+3. Method: **POST**
+4. URL: `https://your-ugg-server.com/api/events`
+5. Headers: Add `Content-Type` = `application/json`
+6. Body type: **JSON**
+7. Body: Paste this and check "Private" for each parameter:
+
+```
+{
+  "device_id": "<device_id>",
+  "event_type": "<event_type>",
+  "protocol": "PROPRIETARY",
+  "occurred_at": "<occurred_at>",
+  "severity": "info",
+  "payload": {
+    "bet": <bet>,
+    "win": <win>
+  }
+}
+```
+
+8. Click **Initialize call** to test
+
+**Step 3: Trigger from your game**
+In your Bubble workflows:
+1. When the player clicks "Spin" or "Play" → trigger "Send Game Event" with event_type = "device.game.start"
+2. When the round result is calculated → trigger "Send Game Event" with event_type = "device.game.end" and include bet/win amounts
+3. When the player adds credits → trigger with event_type = "device.voucher.in"
+4. When the player cashes out → trigger with event_type = "device.voucher.out"
+
+**Step 4: Verify in UGG**
+Log into UGG, go to Device Fleet, and search for your device_id. You should see it appear with events flowing in!"""},
+
+        {"id": "indie-nocode-make", "title": "Connecting from Make.com / Zapier / n8n", "content": """**Step-by-step for automation platforms (Make, Zapier, n8n):**
+
+These platforms are perfect for connecting your game to UGG because they're designed to send HTTP requests between systems.
+
+**Using Make.com (formerly Integromat):**
+
+1. Create a new **Scenario**
+2. Add a **Webhook** trigger (this receives events from your game)
+3. Add an **HTTP** module → **Make a request**
+4. Configure the HTTP module:
+   - URL: `https://your-ugg-server.com/api/events`
+   - Method: POST
+   - Body type: Raw
+   - Content type: JSON
+   - Request content: Paste the event template from the previous article
+   - Map your webhook fields to the template fields
+
+**Using Zapier:**
+
+1. Create a new **Zap**
+2. Trigger: **Webhook by Zapier** → Catch Hook
+3. Action: **Webhooks by Zapier** → POST
+4. URL: `https://your-ugg-server.com/api/events`
+5. Payload Type: JSON
+6. Data: Map your fields to the UGG event template
+
+**Using n8n:**
+
+1. Create a new **Workflow**
+2. Add a **Webhook** node (trigger)
+3. Add an **HTTP Request** node
+4. Method: POST
+5. URL: `https://your-ugg-server.com/api/events`
+6. Body Content Type: JSON
+7. Body Parameters: Map from the webhook data to UGG event format
+
+**Pro tip for all platforms:**
+Create separate scenarios/zaps for each event type (game start, game end, money in, money out). This keeps things organized and easy to debug."""},
+
+        {"id": "indie-nocode-prompts", "title": "AI Prompts for Your NoCode Platform", "content": """**Copy-paste these prompts into your NoCode platform's AI assistant (or ChatGPT) to generate the integration code:**
+
+**Prompt 1: Generate the API connection setup**
+```
+I need to connect my NoCode game application to the UGG (Universal Gaming Gateway) REST API. The API endpoint is [YOUR-UGG-URL]/api/events and accepts POST requests with JSON body. The JSON format requires these fields: device_id (string, my machine's unique ID), event_type (string, one of: device.game.start, device.game.end, device.voucher.in, device.voucher.out, device.status.online, device.tilt), protocol (always "PROPRIETARY"), occurred_at (ISO 8601 UTC timestamp), severity (string: info, warning, or critical), and payload (object with event-specific data like bet amount and win amount). Please generate the complete API connection configuration for [YOUR NOCODE PLATFORM NAME].
+```
+
+**Prompt 2: Generate the game event workflow**
+```
+I have a game in [YOUR NOCODE PLATFORM]. When a player clicks the Play button, I need to: 1) Send a "device.game.start" event to my UGG API with the bet amount. 2) Calculate the game result. 3) Send a "device.game.end" event with both the bet and win amounts. The API endpoint is [YOUR-UGG-URL]/api/events, method POST, content-type JSON. My device_id is "[YOUR-DEVICE-ID]". Please generate the complete workflow with all HTTP request configurations.
+```
+
+**Prompt 3: Generate the meter tracking workflow**
+```
+I need to track money in and money out for my game connected to UGG. When a player adds credits (inserts money), send event_type "device.voucher.in" with the amount in the payload. When a player cashes out, send event_type "device.voucher.out" with the amount. The UGG API is at [YOUR-UGG-URL]/api/events, POST, JSON. Device ID is "[YOUR-DEVICE-ID]". Please create the complete workflow for both money-in and money-out tracking.
+```
+
+**Prompt 4: Generate startup/shutdown notifications**
+```
+My game application needs to notify UGG when it starts and stops. On application start, send a POST to [YOUR-UGG-URL]/api/events with event_type "device.status.online" and payload containing game_title and version. On application shutdown/close, send event_type "device.status.offline". Device ID is "[YOUR-DEVICE-ID]", protocol is "PROPRIETARY". Please generate the startup and shutdown event handlers for [YOUR NOCODE PLATFORM].
+```
+
+**Prompt 5: Generate error reporting**
+```
+When my game encounters any error, I need to report it to UGG for monitoring. Send a POST to [YOUR-UGG-URL]/api/events with event_type "device.tilt", severity "warning" (or "critical" for serious errors), and payload containing a "reason" field describing the error. Device ID is "[YOUR-DEVICE-ID]". Please generate an error handler that catches all errors and reports them to UGG.
+```
+
+**How to use these prompts:**
+1. Copy the prompt
+2. Replace [YOUR-UGG-URL] with your actual UGG server address
+3. Replace [YOUR-DEVICE-ID] with your machine's ID
+4. Replace [YOUR NOCODE PLATFORM] with your platform name (Bubble, Adalo, FlutterFlow, etc.)
+5. Paste into your platform's AI assistant or ChatGPT
+6. Follow the generated instructions"""},
+
+        {"id": "indie-file-method", "title": "Alternative: File Drop Method (No Internet Needed)", "content": """**If your game can't send HTTP requests, use the File Drop method instead.**
+
+This is the simplest possible integration — your game writes a text file, UGG picks it up.
+
+**How it works:**
+1. Your game writes a line to a CSV file every time something happens
+2. UGG's File Connector watches that folder and reads new lines
+3. That's it — no internet, no API, no HTTP requests
+
+**Step 1: Create a CSV file**
+Your game writes to a file called `game_events.csv` in a specific folder.
+
+**The CSV format (one line per event):**
+```
+timestamp,device_id,event_type,bet,win,amount,reason
+2026-01-15T14:30:00Z,MY-GAME-001,game_end,5.00,12.50,,
+2026-01-15T14:30:15Z,MY-GAME-001,game_start,5.00,,,
+2026-01-15T14:31:00Z,MY-GAME-001,money_in,,,20.00,cash
+2026-01-15T14:45:00Z,MY-GAME-001,cash_out,,,35.00,
+2026-01-15T14:45:01Z,MY-GAME-001,status,,,,offline
+```
+
+**Step 2: Tell UGG where the file is**
+In UGG's Connector Builder, create a new FILE connector pointing to your CSV folder.
+
+**Step 3: Map the columns**
+In the Connector Builder mapping canvas:
+- Drag "timestamp" → "occurred_at"
+- Drag "device_id" → "device_id"
+- Drag "event_type" → "event_type" (with transform: add "device." prefix)
+- Drag "bet" → "payload.bet"
+- Drag "win" → "payload.win"
+- Drag "amount" → "payload.amount"
+
+**For NoCode platforms that export to Google Sheets or Airtable:**
+You can write your events to a spreadsheet instead! Then use Make.com or Zapier to forward the rows to UGG's API. This is a great approach if your NoCode platform doesn't support direct HTTP POST but can write to Google Sheets.
+
+**Prompt for your NoCode AI assistant:**
+```
+Every time a game event happens in my application, I need to add a row to a Google Sheet (or CSV file) with these columns: timestamp (ISO 8601 UTC), device_id (always "[YOUR-DEVICE-ID]"), event_type (game_start, game_end, money_in, cash_out, or status), bet (number, the wager amount), win (number, the win amount), amount (number, for money in/out), reason (text, for errors). Please set up this event logging for all game actions.
+```"""},
+
+        {"id": "indie-testing", "title": "Testing Your NoCode Integration", "content": """**Before going live, verify your game is sending data correctly:**
+
+**Quick Test (5 minutes):**
+1. Log into UGG
+2. Go to **Device Fleet**
+3. Search for your device_id (whatever you set, like "MY-GAME-001")
+4. If your game is connected correctly, you should see it in the list with a green dot
+5. Click it to see the detail panel — check the Events tab for your recent events
+
+**What to look for:**
+- Events should appear within a few seconds of the action in your game
+- The event_type should match what you sent
+- The payload should contain the correct bet/win amounts
+- Timestamps should be in UTC and close to the actual time
+
+**If your device doesn't appear:**
+- Check that your UGG API URL is correct (no typos!)
+- Check that you're sending valid JSON (use jsonlint.com to validate)
+- Check that the Content-Type header is set to application/json
+- Look at your NoCode platform's error logs for failed HTTP requests
+- Try the request manually using a tool like Reqbin.com (paste your URL and JSON)
+
+**Full Integration Test:**
+1. Go to **Emulator Lab** in UGG
+2. Click the **Script Runner** tab
+3. Select **Play Cycle Verify**
+4. Click **Run Script**
+5. Compare the Emulator Lab events with your game's events — they should follow the same pattern:
+   - Money in → Game starts → Game ends (with win/loss) → Cash out
+
+**Balanced Meters Check:**
+After running your game for a while:
+- Go to Route Operations > Overview
+- Your device should show Coin In and Coin Out totals
+- Coin In should equal the total money inserted by players
+- If the numbers don't match, check your event amounts — they might be in cents instead of dollars or vice versa
+
+**Congratulations!**
+Once events are flowing, your game is connected to UGG. Operators on the route will be able to see your machine's performance alongside all their other EGMs, and it will be included in NOR reports, tax calculations, and regulatory filings."""},
+
+        {"id": "indie-database-method", "title": "Alternative: Database Method", "content": """**If your NoCode platform uses a database (like Supabase, Firebase, or Airtable), UGG can read directly from it.**
+
+**Step 1: Create an events table in your database**
+Your table should have these columns:
+- `id` — Unique ID for each event (auto-generated)
+- `timestamp` — When it happened (date/time)
+- `device_id` — Your machine ID (text)
+- `event_type` — What happened (text)
+- `bet` — Wager amount (number, nullable)
+- `win` — Win amount (number, nullable)
+- `amount` — Money in/out amount (number, nullable)
+- `processed` — Whether UGG has read it yet (true/false, default false)
+
+**Step 2: Your game writes to this table**
+Every time something happens in your game, insert a new row.
+
+**Step 3: Configure UGG's Database Connector**
+In UGG's Connector Builder:
+1. Create a new connector with type "DATABASE"
+2. Enter your database connection details
+3. UGG will poll your table every few seconds for rows where `processed = false`
+4. After reading each row, UGG sets `processed = true`
+
+**Prompt for Supabase/Firebase setup:**
+```
+I need a database table called "game_events" with columns: id (auto-increment), timestamp (timestamptz, default now()), device_id (text), event_type (text), bet (numeric nullable), win (numeric nullable), amount (numeric nullable), processed (boolean default false). Every time a player action happens in my game, I need to insert a row into this table. Please set up the table and the insert functions for each game action: game_start (with bet), game_end (with bet and win), money_in (with amount), cash_out (with amount), status_online, and error (with reason in a text column).
+```
+
+**This method is great because:**
+- Your game just writes to a database (which most NoCode platforms already do)
+- No HTTP configuration needed
+- UGG handles all the polling and translation
+- If UGG is temporarily unreachable, the events just queue up in your database"""},
+    ]},
 ]
 
 
