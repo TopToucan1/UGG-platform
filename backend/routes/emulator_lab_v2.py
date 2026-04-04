@@ -790,3 +790,362 @@ DEFAULT_TEMPLATES = [
 async def list_templates(request: Request):
     await get_current_user(request)
     return {"templates": DEFAULT_TEMPLATES}
+
+
+# ══════════════════════════════════════════════════
+# DEVICE TEMPLATE XML PARSER
+# ══════════════════════════════════════════════════
+
+from lxml import etree
+from fastapi import UploadFile, File
+
+
+def parse_device_template_xml(xml_content: str) -> dict:
+    """Parse a Device Template XML into a structured dict for the SmartEGM engine."""
+    try:
+        root = etree.fromstring(xml_content.encode("utf-8") if isinstance(xml_content, str) else xml_content)
+    except etree.XMLSyntaxError as e:
+        raise ValueError(f"Invalid XML: {e}")
+
+    # Root attributes
+    template = {
+        "version": root.get("version", "1.0"),
+        "manufacturer": root.get("manufacturer", ""),
+        "model": root.get("model", ""),
+        "software_version": root.get("softwareVersion", root.get("software_version", "")),
+    }
+
+    # Metadata
+    meta_el = root.find("metadata")
+    if meta_el is not None:
+        template["metadata"] = {
+            "serial_number": (meta_el.findtext("serialNumber") or "").strip(),
+            "software_signature": (meta_el.findtext("softwareSignature") or "").strip(),
+            "g2s_schema_version": (meta_el.findtext("g2sSchemaVersion") or "G2S_2.1.0").strip(),
+        }
+    else:
+        template["metadata"] = {"serial_number": "", "software_signature": "", "g2s_schema_version": "G2S_2.1.0"}
+
+    # Denominations
+    denoms_el = root.find("denominations")
+    template["denominations"] = []
+    if denoms_el is not None:
+        template["denominations_active"] = denoms_el.get("active", "true") == "true"
+        for d in denoms_el.findall("denom"):
+            val = int(d.get("value", "0"))
+            template["denominations"].append({"value": val, "display": f"${val / 100:.2f}"})
+    if not template["denominations"]:
+        template["denominations"] = [{"value": 100, "display": "$1.00"}, {"value": 500, "display": "$5.00"}, {"value": 2500, "display": "$25.00"}]
+
+    # Devices (G2S classes)
+    devices_el = root.find("devices")
+    template["devices"] = []
+    if devices_el is not None:
+        for dev in devices_el.findall("device"):
+            template["devices"].append({
+                "class": dev.get("class", ""),
+                "id": int(dev.get("id", "1")),
+                "host_enabled": dev.get("hostEnabled", "true") == "true",
+                "egm_enabled": dev.get("egmEnabled", "true") == "true",
+            })
+
+    # Game outcomes / win levels
+    outcomes_el = root.find("gameOutcomes")
+    template["wager_categories"] = []
+    template["win_levels"] = []
+    if outcomes_el is not None:
+        for wc in outcomes_el.findall("wagerCategory"):
+            template["wager_categories"].append({
+                "id": int(wc.get("id", "1")),
+                "name": wc.get("name", "BaseGame"),
+                "min_bet": int(wc.get("minBet", "100")),
+                "max_bet": int(wc.get("maxBet", "500")),
+            })
+        for wl in outcomes_el.findall("winLevel"):
+            template["win_levels"].append({
+                "id": int(wl.get("id", "0")),
+                "name": wl.get("name", ""),
+                "probability": float(wl.get("probability", "0")),
+                "multiplier": float(wl.get("multiplier", "0")),
+            })
+    if not template["win_levels"]:
+        template["win_levels"] = [w.copy() for w in WIN_LEVELS]
+
+    # Unsupported events
+    unsupported_el = root.find("unsupportedEvents")
+    template["unsupported_event_patterns"] = []
+    if unsupported_el is not None:
+        for pat in unsupported_el.findall("pattern"):
+            template["unsupported_event_patterns"].append(pat.text.strip() if pat.text else "")
+
+    # Progressive data
+    prog_el = root.find("progressiveData")
+    template["has_progressives"] = prog_el is not None and len(list(prog_el)) > 0
+
+    # Derived fields
+    template["class_names"] = [d["class"].replace("G2S_", "") for d in template["devices"]]
+    template["host_enabled_classes"] = [d["class"] for d in template["devices"] if d["host_enabled"]]
+    template["default_denom"] = template["denominations"][0]["value"] if template["denominations"] else 100
+    template["handpay_threshold"] = 120000  # $1,200 in millicents
+
+    return template
+
+
+@router.post("/templates/parse-xml")
+async def parse_template_xml(request: Request, file: UploadFile = File(...)):
+    """Upload and parse a Device Template XML file for SmartEGM configuration."""
+    user = await get_current_user(request)
+    content = await file.read()
+    try:
+        xml_str = content.decode("utf-8")
+        template = parse_device_template_xml(xml_str)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse template: {e}")
+
+    # Store parsed template
+    record = {
+        "id": str(uuid.uuid4()),
+        "filename": file.filename or "template.xml",
+        "raw_xml": xml_str[:10000],
+        **template,
+        "parsed_by": user.get("email"),
+        "parsed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.lab_device_templates.insert_one(record)
+    record.pop("_id", None)
+    return record
+
+
+@router.post("/templates/parse-xml-text")
+async def parse_template_xml_text(request: Request):
+    """Parse Device Template XML from request body text."""
+    user = await get_current_user(request)
+    body = await request.json()
+    xml_str = body.get("xml", "")
+    if not xml_str:
+        raise HTTPException(status_code=400, detail="No XML content provided")
+    try:
+        template = parse_device_template_xml(xml_str)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    record = {
+        "id": str(uuid.uuid4()),
+        "filename": body.get("filename", "inline.xml"),
+        "raw_xml": xml_str[:10000],
+        **template,
+        "parsed_by": user.get("email"),
+        "parsed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.lab_device_templates.insert_one(record)
+    record.pop("_id", None)
+    return record
+
+
+@router.get("/templates/parsed")
+async def list_parsed_templates(request: Request):
+    await get_current_user(request)
+    templates = await db.lab_device_templates.find({}, {"_id": 0, "raw_xml": 0}).sort("parsed_at", -1).to_list(50)
+    return {"templates": templates}
+
+
+@router.post("/smart-egm/load-template/{template_id}")
+async def load_template_into_egm(request: Request, template_id: str):
+    """Load a parsed Device Template into the SmartEGM engine for a session."""
+    user = await get_current_user(request)
+    body = await request.json()
+    session_id = body.get("session_id", "default")
+
+    template = await db.lab_device_templates.find_one({"id": template_id}, {"_id": 0, "raw_xml": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Configure the SmartEGM with the template's win levels and settings
+    egm = _get_egm(session_id)
+    egm["template"] = template
+    egm["state"] = "ENABLED"
+
+    # Override global WIN_LEVELS with template's win levels if present
+    if template.get("win_levels"):
+        egm["custom_win_levels"] = template["win_levels"]
+
+    return {"message": f"Template loaded: {template['manufacturer']} {template['model']}", "session_id": session_id, "template_summary": {"manufacturer": template["manufacturer"], "model": template["model"], "denominations": len(template.get("denominations", [])), "classes": len(template.get("devices", [])), "win_levels": len(template.get("win_levels", []))}}
+
+
+# ══════════════════════════════════════════════════
+# EXCEL EXPORT FOR BALANCED METERS
+# ══════════════════════════════════════════════════
+
+@router.post("/balanced-meters/export-excel")
+async def export_balanced_meters_excel(request: Request):
+    """Export Balanced Meters results as Excel (.xlsx) file."""
+    await get_current_user(request)
+    body = await request.json()
+    results = body.get("results", [])
+    errors_only = body.get("errors_only", False)
+
+    rows_to_export = [r for r in results if not errors_only or not r.get("passed")]
+
+    # Build Excel using openpyxl (already available via lxml deps)
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+    except ImportError:
+        # Fallback: generate CSV instead
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Test ID", "Test Name", "Result", "Left Value", "Right Value", "Delta", "Formula", "Details"])
+        for r in rows_to_export:
+            writer.writerow([r["testId"], r["testName"], "PASS" if r["passed"] else "FAIL", r["leftValue"], r["rightValue"], r["delta"], r["formula"], r["details"]])
+        output.seek(0)
+        return StreamingResponse(io.BytesIO(output.getvalue().encode()), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=balanced_meters.csv"})
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Balanced Meters Analysis"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="0C1322", end_color="0C1322", fill_type="solid")
+    pass_fill = PatternFill(start_color="00D97E", end_color="00D97E", fill_type="solid")
+    fail_fill = PatternFill(start_color="FF3B3B", end_color="FF3B3B", fill_type="solid")
+    pass_font = Font(bold=True, color="FFFFFF")
+    fail_font = Font(bold=True, color="FFFFFF")
+
+    # Header
+    headers = ["Test ID", "Test Name", "Result", "Left Value", "Right Value", "Delta", "Formula", "Details"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    # Data rows
+    for row_num, r in enumerate(rows_to_export, 2):
+        ws.cell(row=row_num, column=1, value=r["testId"])
+        ws.cell(row=row_num, column=2, value=r["testName"])
+        result_cell = ws.cell(row=row_num, column=3, value="PASS" if r["passed"] else "FAIL")
+        result_cell.fill = pass_fill if r["passed"] else fail_fill
+        result_cell.font = pass_font if r["passed"] else fail_font
+        result_cell.alignment = Alignment(horizontal="center")
+        ws.cell(row=row_num, column=4, value=r["leftValue"])
+        ws.cell(row=row_num, column=5, value=r["rightValue"])
+        ws.cell(row=row_num, column=6, value=r["delta"])
+        ws.cell(row=row_num, column=7, value=r["formula"])
+        ws.cell(row=row_num, column=8, value=r["details"])
+
+    # Auto-width
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+
+    # Summary row
+    total = len(results)
+    passed = sum(1 for r in results if r["passed"])
+    failed = total - passed
+    summary_row = len(rows_to_export) + 3
+    ws.cell(row=summary_row, column=1, value="Summary")
+    ws.cell(row=summary_row, column=1).font = Font(bold=True)
+    ws.cell(row=summary_row, column=2, value=f"{passed}/{total} passed, {failed} failed")
+    ws.cell(row=summary_row, column=3, value=f"{round(passed/total*100, 1)}%" if total > 0 else "N/A")
+
+    # Write to buffer
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=balanced_meters_{ts}.xlsx"})
+
+
+# ══════════════════════════════════════════════════
+# HIGH-VOLUME TRANSCRIPT — Virtual Scroll Support
+# ══════════════════════════════════════════════════
+
+@router.get("/transcripts/window")
+async def get_transcript_window(request: Request, session_id: str = "default", offset: int = 0, limit: int = 100, channel: str = None, search: str = None, state: str = None):
+    """
+    Windowed transcript query for virtual scrolling.
+    Returns a page of transcripts + total count for the scroll container.
+    Designed for 100K+ row virtual scroll lists.
+    """
+    await get_current_user(request)
+    query = {"session_id": session_id}
+    if channel:
+        query["channel"] = channel
+    if state and state != "all":
+        query["state"] = state
+    if search:
+        query["$or"] = [
+            {"command_name": {"$regex": search, "$options": "i"}},
+            {"command_class": {"$regex": search, "$options": "i"}},
+            {"payload_xml": {"$regex": search, "$options": "i"}},
+        ]
+
+    total = await db.lab_transcripts.count_documents(query)
+    rows = await db.lab_transcripts.find(query, {"_id": 0}).sort("occurred_at", 1).skip(offset).limit(limit).to_list(limit)
+
+    return {
+        "rows": rows,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + limit < total,
+    }
+
+
+@router.get("/transcripts/stats")
+async def get_transcript_stats(request: Request, session_id: str = "default"):
+    """Get transcript statistics for a session — used by virtual scroll to size the container."""
+    await get_current_user(request)
+    total = await db.lab_transcripts.count_documents({"session_id": session_id})
+    by_channel = {}
+    for ch in ["G2S", "SOAP", "PROTOCOL_TRACE"]:
+        by_channel[ch] = await db.lab_transcripts.count_documents({"session_id": session_id, "channel": ch})
+    by_state = {}
+    for st in ["Standard", "Error", "Comment", "Special Error"]:
+        by_state[st] = await db.lab_transcripts.count_documents({"session_id": session_id, "state": st})
+    errors = await db.lab_transcripts.count_documents({"session_id": session_id, "state": {"$in": ["Error", "Special Error"]}})
+    return {"total": total, "by_channel": by_channel, "by_state": by_state, "error_count": errors}
+
+
+@router.post("/transcripts/seed-bulk")
+async def seed_bulk_transcripts(request: Request):
+    """Seed a large number of transcripts for virtual scroll testing."""
+    user = await get_current_user(request)
+    body = await request.json()
+    session_id = body.get("session_id", "bulk-test")
+    count = min(body.get("count", 1000), 100000)
+
+    g2s_commands = ["commsOnLine", "commsOnLineAck", "setCommsState", "getDeviceStatus", "setDeviceState", "keepAlive", "keepAliveAck", "getMeterInfo", "setEventSub", "getEventSub", "commitVoucher", "handpayKeyedOff"]
+    g2s_classes = ["G2S_cabinet", "G2S_communications", "G2S_gamePlay", "G2S_meters", "G2S_noteAcceptor", "G2S_voucher", "G2S_handpay", "G2S_eventHandler"]
+    channels = ["G2S", "SOAP", "PROTOCOL_TRACE"]
+    states = ["Standard", "Standard", "Standard", "Standard", "Standard", "Error", "Comment"]
+
+    batch = []
+    now = datetime.now(timezone.utc)
+    for i in range(count):
+        ts = (now - timedelta(seconds=count - i)).isoformat()
+        cmd_class = random.choice(g2s_classes)
+        cmd_name = random.choice(g2s_commands)
+        batch.append({
+            "id": str(uuid.uuid4()), "session_id": session_id,
+            "direction": random.choice(["TX", "RX"]),
+            "channel": random.choice(channels),
+            "command_class": cmd_class,
+            "command_name": cmd_name,
+            "session_type": random.choice(["Request", "Response", "Notification"]),
+            "payload_xml": f'<g2s:{cmd_name} g2s:deviceId="G2S_EGM001" g2s:deviceClass="{cmd_class}" />',
+            "state": random.choice(states),
+            "error_code": "G2S_APX001" if random.random() < 0.02 else None,
+            "occurred_at": ts,
+        })
+        if len(batch) >= 1000:
+            await db.lab_transcripts.insert_many(batch)
+            batch = []
+    if batch:
+        await db.lab_transcripts.insert_many(batch)
+
+    return {"message": f"Seeded {count} transcripts", "session_id": session_id}

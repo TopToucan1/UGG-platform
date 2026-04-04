@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';
 import {
   Flask, Play, Check, X, Clock, Plugs, Terminal, Code,
   ArrowRight, ArrowLeft, Power, GameController, CurrencyDollar,
-  Door, Warning, Lightning, Eye, FileCsv, FileText, Sparkle
+  Door, Warning, Lightning, Eye, FileCsv, FileText, Sparkle,
+  Upload, Download, Table
 } from '@phosphor-icons/react';
+import * as XLSX from 'xlsx';
 
 const STATE_C = { ONLINE: '#00D97E', SYNC: '#FFB800', OPENING: '#FFB800', LOST: '#FF3B3B', CLOSED: '#4A6080', ENABLED: '#00D97E', FAULT: '#FF3B3B', IDLE: '#4A6080', HANDPAY_PENDING: '#FFB800' };
 const VERB_ICONS = { INSERT_BILL: CurrencyDollar, INSERT_VOUCHER: FileText, INSERT_COIN: CurrencyDollar, PUSH_PLAY_BUTTON: GameController, PUSH_MAX_BET: GameController, CASH_OUT: CurrencyDollar, REQUEST_HANDPAY: Warning, OPEN_DOOR: Door, CLOSE_DOOR: Door, FORCE_TILT: Lightning, CLEAR_FAULT: Check, SET_CREDITS: CurrencyDollar };
@@ -29,6 +31,16 @@ export default function EmulatorLabPage() {
   const [adapters, setAdapters] = useState([]);
   const [traces, setTraces] = useState([]);
   const [traceTab, setTraceTab] = useState('g2s');
+  // Device Templates
+  const [parsedTemplates, setParsedTemplates] = useState([]);
+  const [templateXml, setTemplateXml] = useState('');
+  const [parsedResult, setParsedResult] = useState(null);
+  // Virtual Scroll Transcripts
+  const [txStats, setTxStats] = useState(null);
+  const [txRows, setTxRows] = useState([]);
+  const [txTotal, setTxTotal] = useState(0);
+  const [txSearch, setTxSearch] = useState('');
+  const listRef = useRef(null);
 
   useEffect(() => {
     api.get('/emulator-lab/scripts').then(r => setScripts(r.data));
@@ -37,7 +49,49 @@ export default function EmulatorLabPage() {
     api.get('/emulator-lab/scripts/runs?limit=10').then(r => setScriptRuns(r.data.runs || []));
     api.get('/adapters').then(r => setAdapters(r.data.adapters || []));
     api.get('/adapters/traces?limit=50').then(r => setTraces(r.data.traces || []));
+    api.get('/emulator-lab/templates/parsed').then(r => setParsedTemplates(r.data.templates || []));
+    loadTranscriptWindow(0);
   }, []);
+
+  const loadTranscriptWindow = async (offset) => {
+    const params = new URLSearchParams({ session_id: sessionId, offset: String(offset), limit: '200' });
+    if (txSearch) params.set('search', txSearch);
+    if (traceTab !== 'all') params.set('channel', traceTab === 'g2s' ? 'G2S' : traceTab === 'soap' ? 'SOAP' : 'PROTOCOL_TRACE');
+    const { data } = await api.get(`/emulator-lab/transcripts/window?${params}`);
+    setTxRows(data.rows || []);
+    setTxTotal(data.total || 0);
+    // Also get stats
+    const statsRes = await api.get(`/emulator-lab/transcripts/stats?session_id=${sessionId}`);
+    setTxStats(statsRes.data);
+  };
+
+  const parseTemplateXml = async () => {
+    if (!templateXml.trim()) return;
+    try {
+      const { data } = await api.post('/emulator-lab/templates/parse-xml-text', { xml: templateXml });
+      setParsedResult(data);
+      setParsedTemplates(prev => [data, ...prev]);
+    } catch (err) {
+      setParsedResult({ error: err.response?.data?.detail || err.message });
+    }
+  };
+
+  const exportBmaExcel = () => {
+    if (!scriptResult?.balanced_meters) return;
+    const ws = XLSX.utils.json_to_sheet(scriptResult.balanced_meters.map(r => ({
+      'Test ID': r.testId, 'Test Name': r.testName, 'Result': r.passed ? 'PASS' : 'FAIL',
+      'Left Value': r.leftValue, 'Right Value': r.rightValue, 'Delta': r.delta,
+      'Formula': r.formula, 'Details': r.details,
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Balanced Meters');
+    XLSX.writeFile(wb, `balanced_meters_${Date.now()}.xlsx`);
+  };
+
+  const seedBulkTranscripts = async (count) => {
+    await api.post('/emulator-lab/transcripts/seed-bulk', { session_id: sessionId, count });
+    loadTranscriptWindow(0);
+  };
 
   const runScript = async () => {
     if (!selectedScript || running) return;
@@ -74,9 +128,10 @@ export default function EmulatorLabPage() {
   const tabs = [
     { id: 'scripts', label: 'Script Runner' },
     { id: 'egm', label: 'SmartEGM' },
+    { id: 'templates', label: 'Templates' },
     { id: 'tar', label: 'TAR Report' },
     { id: 'watchables', label: 'Watchables' },
-    { id: 'traces', label: 'Protocol Trace' },
+    { id: 'traces', label: 'Transcripts' },
   ];
 
   return (
@@ -163,9 +218,14 @@ export default function EmulatorLabPage() {
                 {/* Balanced Meters Results */}
                 {scriptResult?.balanced_meters && (
                   <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }} data-testid="bma-results">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sparkle size={16} style={{ color: '#FFB800' }} />
-                      <span className="font-heading text-sm font-semibold" style={{ color: '#F0F4FF' }}>Balanced Meters Analysis (Appendix B)</span>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkle size={16} style={{ color: '#FFB800' }} />
+                        <span className="font-heading text-sm font-semibold" style={{ color: '#F0F4FF' }}>Balanced Meters Analysis (Appendix B)</span>
+                      </div>
+                      <button data-testid="export-bma-excel" onClick={exportBmaExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
+                        <Download size={12} /> Export Excel
+                      </button>
                     </div>
                     <div className="space-y-1">
                       {scriptResult.balanced_meters.map(bm => (
@@ -294,42 +354,94 @@ export default function EmulatorLabPage() {
           </div>
         )}
 
-        {/* ═══ PROTOCOL TRACE ═══ */}
+        {/* ═══ DEVICE TEMPLATES ═══ */}
+        {activeTab === 'templates' && (
+          <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="templates-panel">
+            <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>Device Template XML Parser</h3>
+            <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
+              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Paste Device Template XML</div>
+              <textarea data-testid="template-xml-input" value={templateXml} onChange={e => setTemplateXml(e.target.value)} rows={8}
+                className="w-full px-3 py-2 rounded text-xs font-mono outline-none resize-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#00D97E' }}
+                placeholder={'<deviceTemplate version="1.0" manufacturer="ACE" model="Velocity-3">\n  <metadata>...</metadata>\n  <denominations>...</denominations>\n  <devices>...</devices>\n  <gameOutcomes>...</gameOutcomes>\n</deviceTemplate>'} />
+              <button data-testid="parse-template-btn" onClick={parseTemplateXml} className="mt-2 flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
+                <Code size={14} /> Parse Template
+              </button>
+            </div>
+            {parsedResult && !parsedResult.error && (
+              <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#00D97E30' }}>
+                <div className="flex items-center gap-2"><Check size={16} style={{ color: '#00D97E' }} /><span className="font-heading text-sm font-semibold" style={{ color: '#F0F4FF' }}>{parsedResult.manufacturer} {parsedResult.model} v{parsedResult.software_version}</span></div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded p-2" style={{ background: '#111827' }}><div className="text-[9px] uppercase tracking-wider" style={{ color: '#4A6080' }}>Schema</div><div className="font-mono text-xs" style={{ color: '#F0F4FF' }}>{parsedResult.metadata?.g2s_schema_version}</div></div>
+                  <div className="rounded p-2" style={{ background: '#111827' }}><div className="text-[9px] uppercase tracking-wider" style={{ color: '#4A6080' }}>Serial</div><div className="font-mono text-xs" style={{ color: '#F0F4FF' }}>{parsedResult.metadata?.serial_number}</div></div>
+                  <div className="rounded p-2" style={{ background: '#111827' }}><div className="text-[9px] uppercase tracking-wider" style={{ color: '#4A6080' }}>Signature</div><div className="font-mono text-xs truncate" style={{ color: '#F0F4FF' }}>{parsedResult.metadata?.software_signature}</div></div>
+                </div>
+                <div><div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Denominations</div><div className="flex gap-1.5">{parsedResult.denominations?.map(d => <span key={d.value} className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: '#111827', color: '#FFB800' }}>{d.display}</span>)}</div></div>
+                <div><div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>G2S Classes ({parsedResult.devices?.length})</div><div className="flex flex-wrap gap-1">{parsedResult.devices?.map(d => <span key={d.class} className="font-mono text-[9px] px-2 py-0.5 rounded" style={{ background: d.host_enabled ? 'rgba(0,217,126,0.1)' : '#111827', color: d.host_enabled ? '#00D97E' : '#4A6080', border: `1px solid ${d.host_enabled ? '#00D97E30' : '#1A2540'}` }}>{d.class}</span>)}</div></div>
+                <div><div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Win Levels</div><div className="space-y-1">{parsedResult.win_levels?.map(wl => <div key={wl.id} className="flex items-center gap-3 px-2 py-1 rounded text-[10px] font-mono" style={{ background: '#111827' }}><span style={{ color: '#F0F4FF' }}>{wl.name}</span><span style={{ color: '#4A6080' }}>{(wl.probability * 100).toFixed(1)}%</span><span style={{ color: wl.multiplier > 0 ? '#FFB800' : '#4A6080' }}>{wl.multiplier}x</span></div>)}</div></div>
+              </div>
+            )}
+            {parsedResult?.error && <div className="rounded p-3 text-xs" style={{ background: 'rgba(255,59,59,0.05)', color: '#FF3B3B', border: '1px solid #FF3B3B30' }}>{parsedResult.error}</div>}
+            {parsedTemplates.length > 0 && (
+              <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Parsed Templates ({parsedTemplates.length})</div>
+              <div className="space-y-1">{parsedTemplates.map(t => <div key={t.id} className="flex items-center gap-3 px-3 py-2 rounded text-xs" style={{ background: '#0C1322', border: '1px solid #1A2540' }}><span style={{ color: '#F0F4FF' }}>{t.manufacturer} {t.model}</span><span className="font-mono" style={{ color: '#4A6080' }}>v{t.software_version}</span><span className="font-mono" style={{ color: '#00B4D8' }}>{t.devices?.length || 0} classes</span><span className="font-mono" style={{ color: '#FFB800' }}>{t.denominations?.length || 0} denoms</span></div>)}</div></div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ VIRTUAL SCROLL TRANSCRIPTS ═══ */}
         {activeTab === 'traces' && (
-          <div className="flex-1 flex flex-col overflow-hidden" data-testid="trace-panel">
-            <div className="flex items-center border-b px-4" style={{ borderColor: '#1A2540', background: '#0C1322' }}>
+          <div className="flex-1 flex flex-col overflow-hidden" data-testid="transcript-panel">
+            <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: '#1A2540', background: '#0C1322' }}>
               {['g2s', 'soap', 'protocol'].map(t => (
-                <button key={t} data-testid={`trace-tab-${t}`} onClick={() => setTraceTab(t)}
-                  className="flex items-center gap-1 px-3 py-2 text-[10px] font-medium uppercase tracking-wider"
-                  style={{ color: traceTab === t ? '#00B4D8' : '#4A6080', borderBottom: traceTab === t ? '2px solid #00B4D8' : '2px solid transparent' }}>
-                  {t === 'g2s' ? 'G2S Messages' : t === 'soap' ? 'SOAP Transport' : 'Protocol Trace'}
+                <button key={t} data-testid={`tx-tab-${t}`} onClick={() => { setTraceTab(t); setTimeout(() => loadTranscriptWindow(0), 100); }}
+                  className="px-2 py-1 rounded text-[9px] font-medium uppercase tracking-wider"
+                  style={{ background: traceTab === t ? 'rgba(0,180,216,0.15)' : 'transparent', color: traceTab === t ? '#00B4D8' : '#4A6080' }}>
+                  {t === 'g2s' ? 'G2S Messages' : t === 'soap' ? 'SOAP' : 'Protocol'}
                 </button>
               ))}
-              <span className="ml-auto text-[9px] font-mono" style={{ color: '#4A6080' }}>{traces.length} traces | {adapters.length} adapters</span>
+              <div className="flex-1" />
+              <input value={txSearch} onChange={e => setTxSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadTranscriptWindow(0)} placeholder="Search..."
+                className="px-2 py-1 rounded text-[10px] outline-none w-40" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+              <span className="text-[9px] font-mono" style={{ color: '#4A6080' }}>{txTotal.toLocaleString()} rows</span>
+              {txStats && <span className="text-[9px] font-mono" style={{ color: txStats.error_count > 0 ? '#FF3B3B' : '#4A6080' }}>{txStats.error_count} errors</span>}
+              <button onClick={() => seedBulkTranscripts(10000)} className="text-[9px] px-2 py-1 rounded" style={{ background: '#1A2540', color: '#4A6080' }}>+10K</button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {traces.filter(t => !traceTab || t.channel === traceTab).map((t, i) => (
-                <div key={t.id || i} className="px-4 py-1.5 border-b text-[10px] font-mono hover:bg-white/[0.02]" style={{ borderColor: '#1A254010' }}>
-                  <div className="flex items-center gap-2">
-                    <span style={{ color: '#4A6080' }}>{t.timestamp ? new Date(t.timestamp).toLocaleTimeString() : ''}</span>
-                    {t.direction === 'out' ? <ArrowRight size={10} style={{ color: '#00B4D8' }} /> : <ArrowLeft size={10} style={{ color: '#00D97E' }} />}
-                    <span className="px-1 rounded" style={{ background: '#1A2540', color: '#00B4D8' }}>{t.protocol}</span>
-                    {t.command && <span style={{ color: '#F0F4FF' }}>{t.command}</span>}
-                    {t.annotation && <span style={{ color: '#8BA3CC' }}>{t.annotation}</span>}
-                  </div>
-                  {traceTab === 'protocol' && t.hex && (
-                    <div className="mt-1 px-2 py-1 rounded" style={{ background: '#111827' }}>
-                      <span style={{ color: '#00D97E' }}>{t.hex.match(/.{1,2}/g)?.join(' ')}</span>
-                    </div>
-                  )}
-                  {(traceTab === 'soap' || traceTab === 'g2s') && t.xml && (
-                    <div className="mt-1 px-2 py-1 rounded overflow-x-auto" style={{ background: '#111827' }}>
-                      <span style={{ color: '#00D97E' }}>{t.xml.slice(0, 300)}</span>
-                    </div>
-                  )}
+            <div className="flex-1 overflow-hidden" data-testid="virtual-transcript-list">
+              {txRows.length > 0 ? (
+                <div className="h-full overflow-y-auto" style={{ background: '#070B14' }}>
+                  {txRows.map((t, index) => {
+                    const isErr = t.state === 'Error' || t.state === 'Special Error';
+                    return (
+                      <div className="flex items-center gap-2 px-4 py-1 text-[10px] font-mono border-b hover:bg-white/[0.02]"
+                        key={t.id || index}
+                        data-testid={`tx-row-${index}`}
+                        style={{ borderColor: '#1A254010', height: 32, background: isErr ? 'rgba(255,59,59,0.03)' : 'transparent' }}
+                      >
+                        <span className="w-14 flex-shrink-0" style={{ color: '#4A6080' }}>{t.occurred_at ? new Date(t.occurred_at).toLocaleTimeString() : ''}</span>
+                        {t.direction === 'TX' ? <ArrowRight size={10} style={{ color: '#00B4D8' }} /> : <ArrowLeft size={10} style={{ color: '#00D97E' }} />}
+                        <span className="w-5 flex-shrink-0" style={{ color: t.direction === 'TX' ? '#00B4D8' : '#00D97E' }}>{t.direction}</span>
+                        <span className="px-1 rounded flex-shrink-0" style={{ background: '#1A2540', color: '#00B4D8' }}>{t.channel}</span>
+                        <span className="flex-shrink-0" style={{ color: '#8BA3CC' }}>{t.command_class}</span>
+                        <span className="truncate" style={{ color: '#F0F4FF' }}>{t.command_name}</span>
+                        {isErr && <span className="px-1 rounded flex-shrink-0" style={{ background: 'rgba(255,59,59,0.15)', color: '#FF3B3B' }}>{t.state}</span>}
+                        {t.error_code && <span className="flex-shrink-0" style={{ color: '#FF3B3B' }}>{t.error_code}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              ) : (
+                <div className="flex items-center justify-center h-full text-xs" style={{ color: '#4A6080' }}>
+                  <div className="text-center"><Flask size={32} className="mx-auto mb-2" /><div>Run a script or seed transcripts to see data</div><button onClick={() => seedBulkTranscripts(5000)} className="mt-2 px-3 py-1.5 rounded text-[10px]" style={{ background: '#1A2540', color: '#00B4D8' }}>Seed 5K Transcripts</button></div>
+                </div>
+              )}
             </div>
+            {txTotal > txRows.length && (
+              <div className="flex items-center justify-center gap-3 px-4 py-2 border-t" style={{ borderColor: '#1A2540', background: '#0C1322' }}>
+                <button onClick={() => loadTranscriptWindow(Math.max(0, (txRows[0]?._offset || 0) - 200))} className="px-3 py-1 rounded text-[10px] font-mono" style={{ background: '#1A2540', color: '#F0F4FF' }}>Prev Page</button>
+                <span className="text-[9px] font-mono" style={{ color: '#4A6080' }}>Showing {txRows.length} of {txTotal.toLocaleString()}</span>
+                <button onClick={() => loadTranscriptWindow((txRows.length))} className="px-3 py-1 rounded text-[10px] font-mono" style={{ background: '#1A2540', color: '#F0F4FF' }}>Next Page</button>
+              </div>
+            )}
           </div>
         )}
       </div>
