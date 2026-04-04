@@ -4,7 +4,7 @@ import {
   ListMagnifyingGlass, Bell, ChatCircleDots, GearSix,
   Cpu, CaretLeft, CaretRight, CurrencyDollar, Users,
   Storefront, Trophy, FileArrowDown, Monitor, Cube, MapPin, Scales,
-  NavigationArrow, ShieldCheck, MagnifyingGlass, WifiHigh, UsersThree, BookOpen
+  NavigationArrow, ShieldCheck, MagnifyingGlass, WifiHigh, UsersThree, BookOpen, Sparkle
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
@@ -28,6 +28,7 @@ const navItems = [
   { path: '/fleet', label: 'Fleet Simulator', icon: UsersThree },
   { path: '/certification', label: 'Certification', icon: ShieldCheck },
   { path: '/compliance', label: 'Compliance Ref', icon: BookOpen },
+  { path: '/ai-analytics', label: 'AI Analytics', icon: Sparkle },
   { path: '/digital-twin', label: 'Digital Twin', icon: Cpu },
   { path: '/audit', label: 'Audit Explorer', icon: ListMagnifyingGlass },
   { path: '/alerts', label: 'Exceptions', icon: Bell },

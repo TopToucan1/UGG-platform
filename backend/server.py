@@ -39,6 +39,7 @@ from routes.gateway import router as gateway_router
 from routes.digital_twin import router as digital_twin_router
 from routes.emulator_lab_v2 import router as emulator_lab_v2_router
 from routes.phase5_tools import router as phase5_tools_router
+from routes.ai_analytics import router as ai_analytics_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ app.include_router(gateway_router)
 app.include_router(digital_twin_router)
 app.include_router(emulator_lab_v2_router)
 app.include_router(phase5_tools_router)
+app.include_router(ai_analytics_router)
 
 
 @app.get("/api")
