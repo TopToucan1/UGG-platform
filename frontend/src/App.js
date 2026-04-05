@@ -31,6 +31,9 @@ import AIAnalyticsPage from '@/pages/AIAnalyticsPage';
 import HardwarePage from '@/pages/HardwarePage';
 import DocsLibraryPage from '@/pages/DocsLibraryPage';
 import PIRSPage from '@/pages/PIRSPage';
+import PinPlayersPage from '@/pages/PinPlayersPage';
+import PinSessionsPage from '@/pages/PinSessionsPage';
+import SessionAnomaliesPage from '@/pages/SessionAnomaliesPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -97,6 +100,9 @@ function AppRoutes() {
       <Route path="/hardware" element={<ProtectedRoute><HardwarePage /></ProtectedRoute>} />
       <Route path="/docs" element={<ProtectedRoute><DocsLibraryPage /></ProtectedRoute>} />
       <Route path="/pirs" element={<ProtectedRoute><PIRSPage /></ProtectedRoute>} />
+      <Route path="/pin-players" element={<ProtectedRoute><PinPlayersPage /></ProtectedRoute>} />
+      <Route path="/pin-sessions" element={<ProtectedRoute><PinSessionsPage /></ProtectedRoute>} />
+      <Route path="/session-anomalies" element={<ProtectedRoute><SessionAnomaliesPage /></ProtectedRoute>} />
       <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

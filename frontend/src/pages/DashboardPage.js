@@ -4,15 +4,16 @@ import { Desktop, Warning, Queue, Lightning, SealCheck, WifiX, Wrench, XCircle }
 import Marquee from 'react-fast-marquee';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import InfoTip from '@/components/InfoTip';
 
 const COLORS = { online: '#00D4AA', offline: '#FF3B30', error: '#FF3B30', maintenance: '#F5A623', info: '#007AFF', warning: '#F5A623', critical: '#FF3B30' };
 const PIE_COLORS = ['#00D4AA', '#007AFF', '#F5A623', '#FF3B30', '#8B5CF6', '#EC4899', '#06B6D4'];
 
-function SummaryCard({ title, icon: Icon, data, color, onClick, testId }) {
+function SummaryCard({ title, icon: Icon, data, color, onClick, testId, info }) {
   return (
     <button data-testid={testId} onClick={onClick} className="rounded border p-4 text-left transition-all duration-150 hover:-translate-y-[1px]" style={{ background: '#12151C', borderColor: '#272E3B' }}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: '#6B7A90' }}>{title}</span>
+        <span className="text-xs font-medium uppercase tracking-wider flex items-center" style={{ color: '#6B7A90' }}>{title}{info && <InfoTip label={title} description={info} />}</span>
         <Icon size={20} style={{ color }} />
       </div>
       <div className="font-mono text-2xl font-bold" style={{ color: '#E8ECF1' }}>{data.main}</div>
@@ -128,7 +129,7 @@ export default function DashboardPage() {
   return (
     <div data-testid="estate-dashboard" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold tracking-tight" style={{ color: '#E8ECF1' }}>Estate Dashboard</h1>
+        <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center" style={{ color: '#E8ECF1' }}>Estate Dashboard<InfoTip label="Estate Dashboard" description="Your daily starting point. Shows the overall health of every device on the floor, live events streaming in, and any alerts you should look at. Use this screen each morning and whenever something feels off." /></h1>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-xs font-mono" style={{ color: wsConnected ? '#00D4AA' : '#FF3B30' }}>
             <span className={`w-2 h-2 rounded-full ${wsConnected ? 'pulse-online' : ''}`} style={{ background: wsConnected ? '#00D4AA' : '#FF3B30' }} />
@@ -140,14 +141,18 @@ export default function DashboardPage() {
       {/* Summary Strip */}
       <div className="grid grid-cols-4 gap-4" data-testid="summary-strip">
         <SummaryCard testId="summary-devices" title="Total Devices" icon={Desktop} color="#00D4AA"
+          info="Every slot or gaming machine registered on your floor. The smaller line shows how many are currently talking to us, offline, or throwing errors. Click to open the full device list."
           data={{ main: s?.devices?.total ?? '--', sub: `${s?.devices?.online ?? 0} online / ${s?.devices?.offline ?? 0} offline / ${s?.devices?.error ?? 0} error` }}
           onClick={() => navigate('/devices')} />
         <SummaryCard testId="summary-alerts" title="Active Alerts" icon={Warning} color="#FF3B30"
+          info="Alerts that still need attention, broken down by how urgent they are. If the critical count is above zero, open this to see what needs fixing right now."
           data={{ main: s?.alerts?.active ?? '--', sub: `${s?.alerts?.critical ?? 0} critical / ${s?.alerts?.warning ?? 0} warning` }}
           onClick={() => navigate('/alerts')} />
         <SummaryCard testId="summary-commands" title="Command Queue" icon={Queue} color="#F5A623"
+          info="Commands you or the system have sent to devices that haven't finished yet. A growing number here usually means devices are slow to respond — worth a look."
           data={{ main: s?.commands?.pending ?? '--', sub: 'pending & in-flight' }} />
         <SummaryCard testId="summary-events" title="Event Throughput" icon={Lightning} color="#007AFF"
+          info="Total count of standardized events the platform has processed. Useful as a heartbeat — a flatline here means the pipeline stopped receiving data."
           data={{ main: s?.events?.total ?? '--', sub: 'total canonical events' }} />
       </div>
 
@@ -155,7 +160,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-12 gap-4">
         {/* Event Volume Area Chart */}
         <div className="col-span-5 rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="event-volume-chart">
-          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Event Volume (24h)</div>
+          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Event Volume (24h)<InfoTip label="Event Volume (24h)" description="Number of events flowing in each hour for the last day. A sudden drop often means a connector has gone quiet; a spike usually means an incident is unfolding." /></div>
           <ResponsiveContainer width="100%" height={140}>
             <AreaChart data={charts?.hourly_event_volume || []}>
               <defs>
@@ -174,7 +179,7 @@ export default function DashboardPage() {
 
         {/* Protocol Distribution Pie */}
         <div className="col-span-3 rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="protocol-chart">
-          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Protocol Mix</div>
+          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Protocol Mix<InfoTip label="Protocol Mix" description="Shows which communication protocols (SAS, G2S, etc.) your devices are using. Handy for confirming a new connector is actually pulling its weight." /></div>
           <ResponsiveContainer width="100%" height={140}>
             <PieChart>
               <Pie data={charts?.protocol_distribution || []} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" nameKey="name" stroke="none">
@@ -195,7 +200,7 @@ export default function DashboardPage() {
 
         {/* Severity Bar Chart */}
         <div className="col-span-4 rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="severity-chart">
-          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Event Severity & Device Status</div>
+          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Event Severity & Device Status<InfoTip label="Event Severity & Device Status" description="Left bars break recent events down by urgency. Right bars show how many devices are in each state. Check this for a fast read on whether the floor is calm or noisy." /></div>
           <div className="grid grid-cols-2 gap-3">
             <ResponsiveContainer width="100%" height={140}>
               <BarChart data={charts?.severity_distribution || []} barSize={20}>
@@ -232,7 +237,7 @@ export default function DashboardPage() {
         {/* Device Health Map */}
         <div className="col-span-8 rounded border overflow-hidden flex flex-col" style={{ background: '#12151C', borderColor: '#272E3B' }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: '#272E3B' }}>
-            <h2 className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Device Health Map</h2>
+            <h2 className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Device Health Map<InfoTip label="Device Health Map" description="A color-coded tile for every device on the floor. Green means online, red means offline or errored, amber means maintenance. Click any tile to open that device's full detail panel." /></h2>
             <div className="flex items-center gap-3 text-[10px]" style={{ color: '#6B7A90' }}>
               <span className="flex items-center gap-1"><SealCheck size={12} style={{ color: '#00D4AA' }} />Online</span>
               <span className="flex items-center gap-1"><WifiX size={12} style={{ color: '#FF3B30' }} />Offline</span>
@@ -259,7 +264,7 @@ export default function DashboardPage() {
         {/* Live Event Feed */}
         <div className="col-span-4 rounded border overflow-hidden flex flex-col" style={{ background: '#12151C', borderColor: '#272E3B' }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: '#272E3B' }}>
-            <h2 className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Live Event Feed</h2>
+            <h2 className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Live Event Feed<InfoTip label="Live Event Feed" description="Every event from every device as it arrives. Newest entries appear at the top. Great for spotting patterns — like multiple devices at the same bank all reporting errors within seconds of each other." /></h2>
             <span className={`w-2 h-2 rounded-full ${wsConnected ? 'pulse-online' : ''}`} style={{ background: wsConnected ? '#00D4AA' : '#FF3B30' }} />
           </div>
           <div className="flex-1 overflow-y-auto" data-testid="live-event-feed">

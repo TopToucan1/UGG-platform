@@ -1952,6 +1952,228 @@ Every month, look at Business Impact and ask: Which rules generated the highest 
 **10. Trust the AI but verify**
 PIRS's churn scoring is powerful but it's based on historical behavior. Occasionally check the Player Intelligence tab and verify that top-scored players match your real-world experience. If the AI is rating a player highly that you know is actually low-value, check their play-back rate data."""},
     ]},
+
+    {"id": "pin-player-tracking", "title": "PIN Player Tracking", "icon": "IdentificationCard", "docs": [
+        {"id": "pin-overview", "title": "What is PIN Player Tracking?", "content": """**UGG does not use physical player cards.** Instead, players log in at the machine using a **PIN number** (4 to 8 digits) tied to an account in our system.
+
+**Why PINs instead of cards?**
+- No plastic cards to print, lose, damage, or replace
+- Players can't forget their card at home — their PIN is in their head
+- No magnetic stripe or chip to wear out
+- No card reader hardware to install or maintain
+- Faster enrollment — you can set up a player in under a minute
+
+**How it works at a high level:**
+1. An operator creates a player account in UGG and sets a 4–8 digit PIN
+2. Player walks up to any EGM on the route
+3. Player enters their PIN on the machine
+4. UGG recognizes the player and starts tracking their play
+5. When the player is done, they log out at the machine (or walk away and auto-logout happens)
+
+**What UGG tracks about each player:**
+- How much money they put in (bills and tickets)
+- How much they cashed out
+- How many games they played
+- Which machines they played on and for how long
+- Whether their behavior looks suspicious (more on that below)
+
+**Important:** UGG tracks TWO different kinds of "sessions" and you need to understand the difference — it affects what reports mean."""},
+
+        {"id": "pin-two-layers", "title": "The Two Kinds of Sessions", "content": """UGG tracks two kinds of sessions at the same time. They overlap, but they are NOT the same thing.
+
+**1. Credit Session — The Money**
+A credit session is about the MONEY on a machine, not about who is playing.
+- **Starts** when someone drops a bill (or redeems a ticket) into a machine that had **zero credits** on it
+- **Ends** when the credits on the machine go back to zero — by any means (played down, cashed out, ticket printed, credits transferred away)
+- A credit session can be **anonymous** — if no PIN is entered, the session still gets tracked, just without a player's name attached
+
+**2. PIN Session — The Player**
+A PIN session is about WHICH PLAYER is at a machine.
+- **Starts** when a player enters their PIN at the machine
+- **Ends** when the player logs out OR when the credit session on that machine ends (whichever comes first)
+- Always tied to a specific player account
+
+**Why two different sessions?**
+Because players do weird things. Here are real scenarios:
+- Player A logs in, plays, logs out while still having $30 in credits, walks away. Player B comes along 2 minutes later, logs in with their own PIN, and plays down those $30 before cashing out. → Same credit session. Two PIN sessions.
+- Someone drops $20 into a machine without logging in (anonymous), then decides to log in with their PIN mid-session. → One credit session. One PIN session, but it only counts play from when they logged in.
+- Player drops a bill at zero credits, plays, cashes out to $0 balance, then drops another bill 30 seconds later. → Two credit sessions (because balance hit zero between them).
+
+**How to think about it:**
+- Use **Credit Sessions** for money reconciliation — how much came in, how much went out, what the machine did financially
+- Use **PIN Sessions** for player behavior — who was playing, how long, how much they played"""},
+
+        {"id": "pin-create-player", "title": "How to Create a PIN Player", "content": """**To add a new player to the system:**
+
+1. Click **PIN Players** in the left sidebar
+2. Click the green **New Player** button in the top right
+3. Fill in the form:
+   - **Name** (required) — The player's full name
+   - **PIN** (required) — A number between 4 and 8 digits. Tell them to pick something they'll remember but isn't obvious (not 1234, not their birthday year)
+   - **Account Ref** (optional) — A customer ID from your own system, if you use one
+   - **Email** (optional) — For future marketing or alerts
+   - **Phone** (optional) — For future SMS rewards
+4. Click **Create**
+
+**That's it.** The player can now walk up to any EGM on your route and log in with their PIN.
+
+**Important security notes:**
+- Once you save a PIN, UGG stores it encrypted — even YOU as an operator cannot see it later
+- If a player forgets their PIN, you cannot look it up. You have to **Change PIN** to a new one
+- Never write PINs down or email them
+- If you suspect a PIN has been compromised, change it immediately
+
+**Changing a player's PIN:**
+1. Go to **PIN Players**
+2. Find the player in the list (use the search box if you have many)
+3. Click the **key icon** next to their name
+4. Enter the new 4–8 digit PIN
+5. Click **Update PIN**
+6. Tell the player their new PIN in person — never by email or text
+
+**Deactivating a player:**
+Click the red **trash icon** next to a player's name. This sets them to "inactive" — their PIN stops working, but their history is kept. You can reactivate them later if needed."""},
+
+        {"id": "pin-viewing-sessions", "title": "Viewing Active and Historical Sessions", "content": """**To see who is currently playing on your route:**
+
+1. Click **PIN Sessions** in the left sidebar
+2. You'll see a dashboard with summary cards at the top:
+   - **Active Credit** — How many machines currently have money in them
+   - **Active PIN** — How many players are currently logged in
+   - **Total Credit** / **Total PIN** — Lifetime counts
+   - **Open Anomalies** — Flagged suspicious behavior (red if any)
+3. Below the cards, there are two tabs:
+   - **Active Now** — Real-time view of what's happening RIGHT NOW (refreshes every 5 seconds automatically)
+   - **Recent History** — The last 100 credit and PIN sessions
+
+**The two columns:**
+- **Left column (Credit Sessions)** — Each card shows a machine with money in it, what was put in, what came out, and how many games were played
+- **Right column (PIN Sessions)** — Each card shows a player, which machine they're on, and their running stats
+
+**Clicking for details:**
+Click any Credit Session card to open a **detail panel** showing:
+- Full session timeline (when it started, when it ended, how)
+- Total money in vs. out
+- Coin in, coin out, games played, net win/loss
+- **All PIN Sessions that happened during this credit session** — so you can see if multiple players shared one session
+
+**Finding a specific player's activity:**
+Currently you view sessions from this main page. To look up a specific player's history, you'd use the API (your administrator can help). A dedicated "player profile" view is on the roadmap."""},
+
+        {"id": "pin-anomalies", "title": "Session Anomalies — Spotting Suspicious Play", "content": """**UGG automatically watches for players trying to game the system.** When it sees something suspicious, it raises an **anomaly** that you can review.
+
+**To see anomalies:**
+Click **Session Anomalies** in the left sidebar.
+
+**The five things UGG watches for:**
+
+**1. MICRO SESSION (Low Severity)**
+- A session that ended in under 60 seconds with 0 or 1 game played
+- Usually harmless — a player changed their mind or made a mistake
+- Worth looking at if you see many from the same player
+
+**2. LOW PLAY FLIP (High Severity) — ⚠️ This is the big one**
+- A player dropped $50 or more, played 3 or fewer games, then cashed out 90%+ of what they put in
+- **This is the classic "money movement" pattern** — someone using the machine as an ATM, possibly to launder cash or move funds between accounts
+- Always investigate these. Check who the player is and see if they have other flags
+
+**3. RAPID CYCLING (High Severity)**
+- Same player started 4 or more credit sessions on the same machine within 30 minutes
+- Can indicate bonus farming, promotion abuse, or unusual behavior
+- Legitimate players don't usually start and stop this many times on one machine
+
+**4. DEVICE HOPPING (High Severity)**
+- Same player active on 3 or more different machines within 60 minutes
+- May indicate someone jumping between machines looking for loose ones (not illegal, but unusual) OR a stolen/shared PIN (someone gave their PIN to a friend)
+- Investigate the pattern — are they trying to qualify for multiple promotions at once?
+
+**5. PIN CHURN (Medium Severity)**
+- A player logged out 5+ times in an hour while still having credits on the machine
+- Could mean the PIN is being shared across people at the same machine, or the player is indecisive
+- Lower priority but worth watching
+
+**What to do with an anomaly:**
+Each anomaly has two buttons on the right side:
+- **Acknowledge (green checkmark)** — "I've seen this and I'm looking into it"
+- **Dismiss (gray X)** — "This is a false positive, ignore it"
+
+**Filtering:**
+Use the dropdowns at the top of the page to filter by:
+- Status (Open, Acknowledged, Dismissed, or All)
+- Severity (High, Medium, Low)
+
+By default you see all **Open** anomalies — the ones that still need attention.
+
+**Best practice:**
+- Review **High severity** anomalies every day at minimum
+- If you see the same player triggering multiple rules, that's a red flag — consider deactivating their PIN until you can talk to them
+- Dismiss false positives so your list stays clean and manageable"""},
+
+        {"id": "pin-one-pin-one-egm", "title": "One PIN, One Machine (at a Time)", "content": """**UGG enforces a rule: a PIN can only be logged in at ONE machine at a time.**
+
+This prevents PIN sharing abuse where a player gives their PIN to a friend and they both try to earn rewards on different machines simultaneously.
+
+**How it works:**
+- If Player A is logged in at Machine 1
+- And then someone tries to log in with Player A's PIN at Machine 2
+- UGG accepts the new login at Machine 2 and **automatically logs out Player A from Machine 1**
+
+This is called **"last wins"** — whichever machine saw the most recent login is the one that counts.
+
+**What operators will see:**
+- The PIN Session for Machine 1 will end with reason `forced_logout_other_device`
+- A new PIN Session opens at Machine 2
+- If this happens repeatedly for the same player, the **DEVICE HOPPING** anomaly rule will fire (see Session Anomalies article)
+
+**Why this matters:**
+- If you see a lot of `forced_logout_other_device` end reasons in the session history, it might indicate PIN sharing
+- Legitimate players rarely trigger this — they finish at one machine before going to another
+- Pair this with the DEVICE HOPPING anomaly to catch organized PIN abuse
+
+**Machine also only hosts one PIN:**
+The reverse is also true — a machine can only have one PIN logged in at a time. If Player B tries to log in at a machine where Player A is already active, Player A gets logged out and Player B takes over. Player A's PIN session ends with reason `forced_logout_pin_swap`. The credit session on the machine continues — whoever is logged in gets tracked against that session."""},
+
+        {"id": "pin-best-practices", "title": "Best Practices for Route Operators", "content": """**Daily routine (5 minutes):**
+1. Open **Session Anomalies** page — check for any new HIGH severity flags
+2. Open **PIN Sessions** → Active Now tab — see who's playing right now, spot anything unusual
+3. If anything looks off, click through to the detail view and investigate
+
+**Weekly routine (15 minutes):**
+1. Review all anomalies from the past 7 days — look for repeat offenders (same player ID showing up in multiple flags)
+2. Check your **PIN Players** list — any players you haven't seen in weeks who should be deactivated?
+3. Spot-check a few random credit sessions in the history view — do the numbers look right? Total in, total out, games played?
+
+**Setting up a new venue on the route:**
+1. Create PIN player accounts for any existing loyalty members BEFORE you install the machines
+2. Give them a printed card with just their name and a note saying "Your PIN is on file with management — ask if you forgot it" — NEVER print the actual PIN
+3. Train venue staff to verify player identity before any PIN reset request
+
+**Handling a lost/forgotten PIN:**
+1. Verify the player's identity in person (ID required)
+2. Use the **key icon** next to their name in PIN Players to set a new PIN
+3. Tell them the new PIN verbally in person
+4. Write a note in their account (notes field) with the date of the reset
+
+**Signs of PIN abuse to watch for:**
+- Same player showing up in multiple anomalies in the same week
+- Lots of `forced_logout_other_device` endings
+- DEVICE HOPPING flags firing often for the same person
+- LOW PLAY FLIP with round numbers (e.g., $100 in, $99 out, 1 game played)
+- PINs that are very simple (1111, 1234, birthday years) — encourage players to pick better ones
+
+**What to tell your players:**
+- "Your PIN is like your bank PIN — don't share it with anyone, not even family"
+- "If you forget your PIN, come see us in person with ID"
+- "If you think someone knows your PIN, tell us immediately so we can change it"
+- "You can only be logged in on one machine at a time — if you walk to another machine, log out first"
+
+**If the worst happens (PIN compromise):**
+1. Deactivate the player's account immediately (trash icon)
+2. Check their session history for the last 24 hours — what did the attacker do?
+3. Look at anomalies filed against that player
+4. Create a new account with a new PIN when you've verified the real player's identity
+5. Document the incident in the notes field of the new account"""},
+    ]},
 ]
 
 

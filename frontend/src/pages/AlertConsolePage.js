@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { Bell, Check, X, Warning } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 export default function AlertConsolePage() {
   const [alerts, setAlerts] = useState([]);
@@ -38,17 +39,20 @@ export default function AlertConsolePage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center gap-3" style={{ color: '#E8ECF1' }}>
           <Bell size={24} style={{ color: '#FF3B30' }} /> Alert Console
+          <InfoTip label="Alert Console" description="Active alerts and exceptions from your EGMs that need attention — door opens, tilts, handpays, offline devices, and more. Work through these to keep your floor running." />
         </h1>
-        <span className="text-xs font-mono" style={{ color: '#6B7A90' }}>{total} alerts</span>
+        <span className="flex items-center text-xs font-mono" style={{ color: '#6B7A90' }}>{total} alerts<InfoTip description="Total number of alerts currently matching your filters." /></span>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
+        <InfoTip label="Status Filter" description="Narrow the list by alert status: Active (new, not yet looked at), Acknowledged (someone is aware), or Resolved (issue cleared)." />
         <select data-testid="alert-status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
           <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="acknowledged">Acknowledged</option>
           <option value="resolved">Resolved</option>
         </select>
+        <InfoTip label="Severity Filter" description="Filter by how serious the alert is. Critical = stop everything and investigate. Warning = needs attention soon. Info = FYI only." />
         <select data-testid="alert-severity-filter" value={severityFilter} onChange={e => setSeverityFilter(e.target.value)} className="px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
           <option value="">All Severities</option>
           <option value="critical">Critical</option>
@@ -75,21 +79,29 @@ export default function AlertConsolePage() {
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-medium" style={{ color: '#E8ECF1' }}>{a.device_ref}</span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${sevColors[a.severity]}20`, color: sevColors[a.severity] }}>{a.severity}</span>
+                <InfoTip label="Severity" description="Critical = machine is down or money is at risk. Warning = problem needs attention but machine may still run. Info = a routine event worth noting." />
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded capitalize" style={{ background: `${statusColors[a.status]}20`, color: statusColors[a.status] }}>{a.status}</span>
+                <InfoTip label="Alert Types" description="Door open = a service door on the EGM was opened, usually by a technician or attendant. Tilt = the machine detected a mechanical or electronic fault and disabled itself. Handpay = jackpot above the hopper limit, requires attendant payout. Offline = the machine stopped reporting to the platform." />
               </div>
               <div className="text-sm mt-0.5" style={{ color: '#A3AEBE' }}>{a.message}</div>
               <div className="text-[10px] font-mono mt-1" style={{ color: '#6B7A90' }}>{new Date(a.created_at).toLocaleString()}</div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
               {a.status === 'active' && (
+                <>
                 <button data-testid={`ack-alert-${a.id}`} onClick={() => acknowledge(a.id)} className="px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(245,166,35,0.1)', color: '#F5A623' }}>
                   Acknowledge
                 </button>
+                <InfoTip description="Mark the alert as seen so the rest of the team knows someone is handling it. Does not fix the issue." />
+                </>
               )}
               {(a.status === 'active' || a.status === 'acknowledged') && (
+                <>
                 <button data-testid={`resolve-alert-${a.id}`} onClick={() => resolve(a.id)} className="px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>
                   Resolve
                 </button>
+                <InfoTip description="Close out the alert once the underlying issue has been fixed (door closed, fault cleared, handpay paid, etc.)." />
+                </>
               )}
             </div>
           </div>

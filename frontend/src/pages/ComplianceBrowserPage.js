@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { BookOpen, MagnifyingGlass, ShieldCheck, Warning, CaretRight, Check, X } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const SEV_C = { ERROR: '#FF3B3B', WARNING: '#FFB800' };
 const CAT_C = { EVENT_SUBSCRIPTION: '#00B4D8', EVENT_REPORT: '#00D97E', STATE_TRANSITION: '#8B5CF6' };
@@ -33,7 +34,7 @@ export default function ComplianceBrowserPage() {
       <div className="w-80 border-r flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
-            <BookOpen size={16} style={{ color: '#06B6D4' }} /> Compliance Reference
+            <BookOpen size={16} style={{ color: '#06B6D4' }} /> Compliance Reference<InfoTip label="Compliance Reference" description="Searchable encyclopedia of G2S protocol rules — what the regulator expects, why it matters, and how to fix violations. Use this to look up any rule ID cited in an audit finding." />
           </h2>
           <div className="text-[10px] mt-0.5" style={{ color: '#4A6080' }}>Public G2S protocol rule encyclopedia</div>
         </div>
@@ -42,15 +43,22 @@ export default function ComplianceBrowserPage() {
             <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: '#4A6080' }} />
             <input data-testid="compliance-search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search rules..."
               className="w-full pl-8 pr-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+            <InfoTip description="Full-text search across rule IDs, titles, and descriptions." />
           </div>
+          <div className="flex items-center">
           <select data-testid="compliance-cat-filter" value={catFilter} onChange={e => setCatFilter(e.target.value)} className="w-full px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
             <option value="">All Categories</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <InfoTip description="Filter by rule category (event subscription, event report, state transition, etc.)." />
+          </div>
+          <div className="flex items-center">
           <select data-testid="compliance-class-filter" value={classFilter} onChange={e => setClassFilter(e.target.value)} className="w-full px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
             <option value="">All Classes</option>
             {classes.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <InfoTip description="Filter by G2S class — the protocol group a rule applies to (meters, cabinet, events, etc.)." />
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto" data-testid="rule-list">
           {rules.map(r => (
@@ -85,41 +93,41 @@ export default function ComplianceBrowserPage() {
             </div>
 
             <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Description</div>
+              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Description<InfoTip description="Plain-language statement of what the rule requires." /></div>
               <p className="text-sm leading-relaxed" style={{ color: '#8BA3CC' }}>{selected.description}</p>
             </div>
 
             {selected.why_it_matters && (
               <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#FF3B3B20' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#FF3B3B' }}>Why It Matters</div>
+                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#FF3B3B' }}>Why It Matters<InfoTip description="Regulatory/business impact if the rule is violated — e.g. tax misreporting, license risk." /></div>
                 <p className="text-sm leading-relaxed" style={{ color: '#F0F4FF' }}>{selected.why_it_matters}</p>
               </div>
             )}
 
             {selected.protocol_ref && (
               <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#00B4D8' }}>Protocol Reference</div>
+                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#00B4D8' }}>Protocol Reference<InfoTip description="Pointer to the section of the G2S specification that defines this rule." /></div>
                 <p className="text-sm font-mono" style={{ color: '#00B4D8' }}>{selected.protocol_ref}</p>
               </div>
             )}
 
             {selected.expected_behavior && (
               <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#00D97E20' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center gap-1" style={{ color: '#00D97E' }}><Check size={12} /> Expected Behavior</div>
+                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center gap-1" style={{ color: '#00D97E' }}><Check size={12} /> Expected Behavior<InfoTip description="Exactly what a compliant machine or host must do to satisfy this rule." /></div>
                 <p className="text-sm leading-relaxed" style={{ color: '#8BA3CC' }}>{selected.expected_behavior}</p>
               </div>
             )}
 
             {selected.violation_example && (
               <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#FF3B3B20' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center gap-1" style={{ color: '#FF3B3B' }}><X size={12} /> Violation Example</div>
+                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center gap-1" style={{ color: '#FF3B3B' }}><X size={12} /> Violation Example<InfoTip description="Concrete example of a non-compliant behavior — useful when triaging real findings." /></div>
                 <p className="text-sm leading-relaxed font-mono" style={{ color: '#FF6B6B' }}>{selected.violation_example}</p>
               </div>
             )}
 
             {selected.fix_guidance && (
               <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#FFB80020' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center gap-1" style={{ color: '#FFB800' }}><ShieldCheck size={12} /> Fix Guidance</div>
+                <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center gap-1" style={{ color: '#FFB800' }}><ShieldCheck size={12} /> Fix Guidance<InfoTip description="Recommended remediation steps operators can take to close the finding." /></div>
                 <p className="text-sm leading-relaxed" style={{ color: '#8BA3CC' }}>{selected.fix_guidance}</p>
               </div>
             )}

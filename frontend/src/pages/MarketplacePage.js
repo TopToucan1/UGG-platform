@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { Storefront, MagnifyingGlass, Star, ShieldCheck, Download, Tag, Funnel } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const PRICE_COLORS = { free: '#00D4AA', per_device: '#007AFF', subscription: '#F5A623', one_time: '#8B5CF6' };
 const CAT_COLORS = ['#00D4AA', '#007AFF', '#F5A623', '#FF3B30', '#8B5CF6', '#EC4899', '#06B6D4'];
@@ -41,17 +42,18 @@ export default function MarketplacePage() {
         <div className="px-4 py-3 border-b" style={{ borderColor: '#272E3B' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#E8ECF1' }}>
             <Storefront size={16} style={{ color: '#00D4AA' }} /> Marketplace
+            <InfoTip label="Marketplace" description="Browse and install third-party connectors and game content packs for your fleet. Certified items have been vetted by UGG." />
           </h2>
         </div>
         {stats && (
           <div className="px-4 py-3 border-b space-y-2" style={{ borderColor: '#272E3B' }}>
-            <div className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>Connectors</span><span className="font-mono" style={{ color: '#E8ECF1' }}>{stats.total}</span></div>
-            <div className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>Certified</span><span className="font-mono" style={{ color: '#00D4AA' }}>{stats.certified}</span></div>
-            <div className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>Free</span><span className="font-mono" style={{ color: '#00D4AA' }}>{stats.free}</span></div>
-            <div className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>Vendors</span><span className="font-mono" style={{ color: '#E8ECF1' }}>{stats.vendors}</span></div>
+            <div className="flex justify-between text-xs"><span className="flex items-center" style={{ color: '#6B7A90' }}>Connectors<InfoTip description="Total number of connectors and content packs currently listed in the marketplace." /></span><span className="font-mono" style={{ color: '#E8ECF1' }}>{stats.total}</span></div>
+            <div className="flex justify-between text-xs"><span className="flex items-center" style={{ color: '#6B7A90' }}>Certified<InfoTip description="Items reviewed and approved by UGG for security, stability, and compliance. Prefer certified when possible." /></span><span className="font-mono" style={{ color: '#00D4AA' }}>{stats.certified}</span></div>
+            <div className="flex justify-between text-xs"><span className="flex items-center" style={{ color: '#6B7A90' }}>Free<InfoTip description="Number of listings with no install or subscription cost." /></span><span className="font-mono" style={{ color: '#00D4AA' }}>{stats.free}</span></div>
+            <div className="flex justify-between text-xs"><span className="flex items-center" style={{ color: '#6B7A90' }}>Vendors<InfoTip description="Count of distinct publishers with at least one listing in the marketplace." /></span><span className="font-mono" style={{ color: '#E8ECF1' }}>{stats.vendors}</span></div>
           </div>
         )}
-        <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium" style={{ color: '#6B7A90' }}>Categories</div>
+        <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#6B7A90' }}>Categories<InfoTip description="Filter the marketplace by connector category (protocols, analytics, content, etc.). Click a category to narrow the grid." /></div>
         <div className="flex-1 overflow-y-auto px-2">
           <button data-testid="cat-all" onClick={() => setCatFilter('')} className="w-full text-left px-3 py-2 rounded text-xs mb-0.5 transition-colors"
             style={{ background: !catFilter ? 'rgba(0,212,170,0.1)' : 'transparent', color: !catFilter ? '#00D4AA' : '#A3AEBE' }}>
@@ -74,6 +76,7 @@ export default function MarketplacePage() {
             <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#6B7A90' }} />
             <input data-testid="marketplace-search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search connectors, vendors..."
               className="w-full pl-9 pr-4 py-2 rounded text-sm outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }} />
+            <InfoTip description="Type to search by connector name, vendor, tag, or description. Combine with a category filter to narrow results further." />
           </div>
           <span className="text-xs font-mono" style={{ color: '#6B7A90' }}>{total} results</span>
         </div>
@@ -148,8 +151,9 @@ export default function MarketplacePage() {
               <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#6B7A90' }}>Tags</div>
               <div className="flex flex-wrap gap-1">{selected.tags?.map(t => <span key={t} className="text-[10px] px-2 py-0.5 rounded" style={{ background: '#1A1E2A', color: '#A3AEBE', border: '1px solid #272E3B' }}><Tag size={10} className="inline mr-1" />{t}</span>)}</div>
             </div>
-            <button data-testid="install-connector-btn" onClick={() => installConnector(selected.id)} className="w-full py-2.5 rounded text-sm font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
+            <button data-testid="install-connector-btn" onClick={() => installConnector(selected.id)} className="w-full py-2.5 rounded text-sm font-medium flex items-center justify-center" style={{ background: '#00D4AA', color: '#0A0C10' }}>
               <Download size={16} className="inline mr-2" /> Install Connector
+              <InfoTip description="Add this connector to your fleet. Paid items will be billed according to the listed price model (per-device, subscription, or one-time)." />
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { ShieldCheck, Play, CaretDown, CaretRight, Check, X, Clock, FileText, Download, Warning, Trophy, Certificate } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const TIER_COLORS = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', platinum: '#B9F2FF' };
 const STATUS_C = { passed: '#00D97E', failed: '#FF3B3B', skipped: '#4A6080', running: '#00B4D8' };
@@ -67,13 +68,13 @@ export default function CertificationPage() {
       <div className="w-72 border-r flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
-            <ShieldCheck size={16} style={{ color: '#00B4D8' }} /> Certification Suite
+            <ShieldCheck size={16} style={{ color: '#00B4D8' }} /> Certification Suite<InfoTip label="Certification Suite" description="Automated test harness that replays the GLI/BMM lab scenarios (GLI-11, GLI-21, GLI-33) against a machine so operators can self-check before shipping a unit to the state gaming lab." />
           </h2>
         </div>
         {/* Config */}
         <div className="p-4 space-y-3 border-b" style={{ borderColor: '#1A2540' }}>
           <div>
-            <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Target Device</label>
+            <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Target Device<InfoTip description="Pick the specific machine you want to run the certification tests against." /></label>
             <select data-testid="cert-device-select" value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
               className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
               <option value="">Auto-select first device</option>
@@ -81,7 +82,7 @@ export default function CertificationPage() {
             </select>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-wider mb-1.5" style={{ color: '#4A6080' }}>Certification Tier</label>
+            <label className="block text-[10px] uppercase tracking-wider mb-1.5 flex items-center" style={{ color: '#4A6080' }}>Certification Tier<InfoTip description="Bronze runs only the minimum required test classes; Platinum runs every G2S class end-to-end. Pick the level matching the jurisdiction you're submitting to." /></label>
             <div className="space-y-1.5">
               {Object.entries(tiers).map(([key, tier]) => (
                 <button key={key} data-testid={`tier-${key}`} onClick={() => setSelectedTier(key)}
@@ -100,12 +101,12 @@ export default function CertificationPage() {
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded text-sm font-semibold disabled:opacity-50 transition-colors"
             style={{ background: running ? '#1A2540' : '#00D97E', color: '#070B14' }}>
             {running ? <Clock size={16} className="animate-spin" /> : <Play size={16} weight="fill" />}
-            {running ? 'Running Tests...' : 'Run All Tests'}
+            {running ? 'Running Tests...' : 'Run All Tests'}{!running && <InfoTip description="Kick off the full certification suite for the selected device and tier. Results replace the current view when complete." />}
           </button>
         </div>
         {/* Past Runs */}
         <div className="flex-1 overflow-y-auto">
-          <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Past Runs</div>
+          <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#4A6080' }}>Past Runs<InfoTip description="History of previous certification attempts. Click to re-open full results." /></div>
           {runs.map(r => (
             <button key={r.id} data-testid={`past-run-${r.id}`} onClick={() => loadRun(r.id)}
               className="w-full text-left px-4 py-2.5 border-b transition-colors" style={{ borderColor: '#1A254020', background: selectedRun === r.id ? 'rgba(0,180,216,0.06)' : 'transparent' }}>
@@ -142,7 +143,7 @@ export default function CertificationPage() {
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <Trophy size={20} weight="fill" style={{ color: TIER_COLORS[currentRun.tier] }} />
-                  <span className="font-heading text-xl font-bold" style={{ color: '#F0F4FF' }}>{currentRun.tier_label} Certification</span>
+                  <span className="font-heading text-xl font-bold flex items-center" style={{ color: '#F0F4FF' }}>{currentRun.tier_label} Certification<InfoTip description="Results for the selected certification tier. Status PASSED means every required class met the minimum pass rate and the machine is lab-ready." /></span>
                   <span className="text-sm font-mono px-2 py-0.5 rounded" style={{ background: currentRun.status === 'PASSED' ? 'rgba(0,217,126,0.1)' : 'rgba(255,59,59,0.1)', color: currentRun.status === 'PASSED' ? '#00D97E' : '#FF3B3B' }}>
                     {currentRun.status}
                   </span>
@@ -160,10 +161,10 @@ export default function CertificationPage() {
               {currentRun.status === 'PASSED' && currentRun.certificate_id && (
                 <div className="ml-auto flex gap-2">
                   <button data-testid="export-cert-btn" className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
-                    <Certificate size={14} /> View Certificate
+                    <Certificate size={14} /> View Certificate<InfoTip description="Open the signed certification artifact — the document the state lab will accept as proof the device passed." />
                   </button>
                   <button className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: 'rgba(0,217,126,0.1)', color: '#00D97E', border: '1px solid rgba(0,217,126,0.2)' }}>
-                    <Download size={14} /> Export PDF
+                    <Download size={14} /> Export PDF<InfoTip description="Download a PDF summary of the full test run, suitable for emailing to the lab or archiving." />
                   </button>
                 </div>
               )}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { BookOpen, MagnifyingGlass, CaretRight, Rocket, ChartBar, MapPin, Flask, Sparkle, Cpu, GearSix } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const SECTION_ICONS = { 'getting-started': Rocket, 'operations': ChartBar, 'route-ops': MapPin, 'testing': Flask, 'ai-tools': Sparkle, 'hardware': Cpu, 'admin': GearSix };
 
@@ -46,14 +47,16 @@ export default function DocsLibraryPage() {
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
             <BookOpen size={16} style={{ color: '#06B6D4' }} /> Documentation
+            <InfoTip label="Documentation Library" description="In-app operator guides for every corner of the platform — getting started, daily operations, route ops, hardware setup, admin, and more. Search across all docs with the box below." />
           </h2>
         </div>
         {/* Search */}
         <div className="px-3 py-2">
-          <div className="relative">
+          <div className="relative flex items-center">
             <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: '#4A6080' }} />
             <input data-testid="doc-search" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchDocs()} placeholder="Search docs..."
               className="w-full pl-8 pr-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+            <InfoTip label="Search" description="Type a keyword and press Enter to search across every article in the library. Click a result to jump straight to it." />
           </div>
           {searchResults.length > 0 && (
             <div className="mt-1 rounded border" style={{ background: '#111827', borderColor: '#1A2540' }}>

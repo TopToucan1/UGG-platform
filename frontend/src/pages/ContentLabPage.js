@@ -5,6 +5,7 @@ import {
   Warning, ArrowRight, Sparkle, Database, Clock, RocketLaunch,
   FileMagnifyingGlass, HexagonIcon as HexIcon, Rows
 } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 const CAT_COLORS = { slot: '#00D4AA', bonus: '#F5A623', player_tracking: '#007AFF', financial: '#FF3B30', system: '#8B5CF6' };
@@ -107,9 +108,9 @@ export default function ContentLabPage() {
   };
 
   const tabs = [
-    { id: 'analyzer', label: 'SWF Analyzer', icon: FileMagnifyingGlass },
-    { id: 'hex', label: 'Binary Inspector', icon: Cube },
-    { id: 'registry', label: 'Content Registry', icon: Database },
+    { id: 'analyzer', label: 'SWF Analyzer', icon: FileMagnifyingGlass, tip: 'Upload a SWF (Flash) game file and the analyzer will decompress it, extract strings and identifiers, and suggest canonical event mappings.' },
+    { id: 'hex', label: 'Binary Inspector', icon: Cube, tip: 'Raw hex/ASCII viewer for any binary file — useful for protocol dumps, firmware images, or verifying a file header.' },
+    { id: 'registry', label: 'Content Registry', icon: Database, tip: 'The master list of all content packages (games, firmware, config) known to the platform, along with which devices each is deployed to.' },
   ];
 
   return (
@@ -119,24 +120,28 @@ export default function ContentLabPage() {
         <div className="px-4 py-3 border-b" style={{ borderColor: '#272E3B' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#E8ECF1' }}>
             <Cube size={16} style={{ color: '#00D4AA' }} /> EGM Content Lab
+            <InfoTip label="EGM Content Lab" description="Tools for inspecting and registering game content (SWF files, binaries, firmware) that runs on EGMs. Lets you see what's inside a game package and track which versions are deployed where." />
           </h2>
         </div>
         <div className="p-2 space-y-0.5">
           {tabs.map(t => (
-            <button key={t.id} data-testid={`lab-tab-${t.id}`} onClick={() => setActiveTab(t.id)}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded text-xs transition-colors"
-              style={{ background: activeTab === t.id ? 'rgba(0,212,170,0.1)' : 'transparent', color: activeTab === t.id ? '#00D4AA' : '#A3AEBE' }}>
-              <t.icon size={16} /> {t.label}
-            </button>
+            <div key={t.id} className="flex items-center">
+              <button data-testid={`lab-tab-${t.id}`} onClick={() => setActiveTab(t.id)}
+                className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded text-xs transition-colors"
+                style={{ background: activeTab === t.id ? 'rgba(0,212,170,0.1)' : 'transparent', color: activeTab === t.id ? '#00D4AA' : '#A3AEBE' }}>
+                <t.icon size={16} /> {t.label}
+              </button>
+              <InfoTip label={t.label} description={t.tip} />
+            </div>
           ))}
         </div>
 
         {/* Stats */}
         {contentStats && (
           <div className="px-4 py-3 border-t space-y-2" style={{ borderColor: '#272E3B' }}>
-            <div className="text-[10px] uppercase tracking-wider font-medium" style={{ color: '#6B7A90' }}>Registry Stats</div>
-            <div className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>Content Packages</span><span className="font-mono" style={{ color: '#E8ECF1' }}>{contentStats.total_content}</span></div>
-            <div className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>Analyses Run</span><span className="font-mono" style={{ color: '#00D4AA' }}>{contentStats.total_analyses}</span></div>
+            <div className="text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#6B7A90' }}>Registry Stats<InfoTip description="At-a-glance totals for the content registry: how many packages are tracked, how many have been analyzed, and a breakdown by content type." /></div>
+            <div className="flex justify-between text-xs"><span className="flex items-center" style={{ color: '#6B7A90' }}>Content Packages<InfoTip description="Total count of registered content packages across all types (SWF, HTML5, firmware, config)." /></span><span className="font-mono" style={{ color: '#E8ECF1' }}>{contentStats.total_content}</span></div>
+            <div className="flex justify-between text-xs"><span className="flex items-center" style={{ color: '#6B7A90' }}>Analyses Run<InfoTip description="How many times the SWF analyzer has been run — each unique upload counts as one analysis." /></span><span className="font-mono" style={{ color: '#00D4AA' }}>{contentStats.total_analyses}</span></div>
             {Object.entries(contentStats.by_type || {}).map(([k, v]) => (
               <div key={k} className="flex justify-between text-xs"><span style={{ color: '#6B7A90' }}>{k.toUpperCase()}</span><span className="font-mono" style={{ color: '#E8ECF1' }}>{v}</span></div>
             ))}
@@ -145,7 +150,7 @@ export default function ContentLabPage() {
 
         {/* Recent Analyses */}
         <div className="flex-1 overflow-y-auto border-t" style={{ borderColor: '#272E3B' }}>
-          <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium" style={{ color: '#6B7A90' }}>Recent Analyses</div>
+          <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#6B7A90' }}>Recent Analyses<InfoTip description="The last files you analyzed. Each entry shows the filename, SWF version, number of string identifiers extracted, and size in bytes." /></div>
           {analyses.map(a => (
             <div key={a.id} className="px-4 py-2 border-b text-xs" style={{ borderColor: '#272E3B10' }}>
               <div className="font-medium truncate" style={{ color: '#E8ECF1' }}>{a.filename}</div>
@@ -183,10 +188,13 @@ export default function ContentLabPage() {
                       SWF v{analysis.swf_version} | {analysis.compressed ? 'Compressed' : 'Raw'} | {analysis.file_size?.toLocaleString()} bytes → {analysis.uncompressed_size?.toLocaleString()} bytes | {analysis.total_strings} strings
                     </div>
                   </div>
-                  <button data-testid="register-from-analysis-btn" onClick={() => setShowRegister(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
-                    <Database size={14} /> Register to Content Registry
-                  </button>
+                  <div className="flex items-center">
+                    <button data-testid="register-from-analysis-btn" onClick={() => setShowRegister(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
+                      <Database size={14} /> Register to Content Registry
+                    </button>
+                    <InfoTip label="Register to Registry" description="Save this analyzed SWF as a content package in the registry so it can be tracked across devices and deployments." />
+                  </div>
                 </div>
 
                 {/* Categories */}
@@ -204,7 +212,7 @@ export default function ContentLabPage() {
                   <div className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkle size={16} style={{ color: '#00D4AA' }} />
-                      <span className="text-[11px] uppercase tracking-wider font-medium" style={{ color: '#6B7A90' }}>Auto-Suggested Event Mappings ({analysis.suggested_mappings.length})</span>
+                      <span className="text-[11px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#6B7A90' }}>Auto-Suggested Event Mappings ({analysis.suggested_mappings.length})<InfoTip description="The analyzer looked at strings inside the SWF and proposed which source symbols should map to which canonical events/fields. Confidence is how sure it is — anything under 80% should be reviewed." /></span>
                     </div>
                     <div className="space-y-1.5">
                       {analysis.suggested_mappings.map((m, i) => (
@@ -316,12 +324,13 @@ export default function ContentLabPage() {
         {activeTab === 'registry' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-4" data-testid="content-registry-panel">
             <div className="flex items-center justify-between">
-              <h3 className="font-heading text-lg font-semibold" style={{ color: '#E8ECF1' }}>EGM Content Registry</h3>
-              <div className="flex gap-2">
+              <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#E8ECF1' }}>EGM Content Registry<InfoTip label="EGM Content Registry" description="Master list of every content package known to the platform — games, firmware, config bundles. Tracks version, manufacturer, deployment status, and which devices run it." /></h3>
+              <div className="flex gap-2 items-center">
                 <span className="text-xs font-mono" style={{ color: '#6B7A90' }}>{contentTotal} packages</span>
                 <button data-testid="register-content-btn" onClick={() => setShowRegister(true)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
                   <Database size={14} /> Register Content
                 </button>
+                <InfoTip label="Register Content" description="Manually add a new content package to the registry (e.g. when you don't have the file to analyze but need to track it)." />
               </div>
             </div>
 
@@ -330,27 +339,27 @@ export default function ContentLabPage() {
                 <h4 className="text-sm font-semibold" style={{ color: '#E8ECF1' }}>Register Content Package</h4>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Name</label>
+                    <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Name<InfoTip description="Friendly name shown in the registry list. Usually 'Game Title vX.Y' format." /></label>
                     <input value={regForm.name} onChange={e => setRegForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }} placeholder="Buffalo Gold v2.1" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Game Title</label>
+                    <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Game Title<InfoTip description="The public name of the game (e.g. 'Buffalo Gold'). Multiple content versions can share one title." /></label>
                     <input value={regForm.game_title} onChange={e => setRegForm(p => ({ ...p, game_title: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }} placeholder="Buffalo Gold" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Manufacturer</label>
+                    <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Manufacturer<InfoTip description="Game maker (Aristocrat, IGT, Scientific Games, Konami, etc.)." /></label>
                     <input value={regForm.manufacturer} onChange={e => setRegForm(p => ({ ...p, manufacturer: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }} placeholder="Aristocrat" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Content Type</label>
+                    <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Content Type<InfoTip description="Format of the package. SWF = legacy Flash game binary. HTML5 = modern web-based game. Firmware = EGM system software. Config = device configuration bundle." /></label>
                     <select value={regForm.content_type} onChange={e => setRegForm(p => ({ ...p, content_type: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
                       <option value="swf">SWF (Flash)</option><option value="html5">HTML5</option><option value="firmware">Firmware</option><option value="config">Configuration</option><option value="other">Other</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Version</label>
+                    <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Version<InfoTip description="Build number / release string from the vendor. Used to differentiate builds of the same game." /></label>
                     <input value={regForm.version} onChange={e => setRegForm(p => ({ ...p, version: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }} />
                   </div>
                 </div>
@@ -368,8 +377,8 @@ export default function ContentLabPage() {
             {/* Content List */}
             <div className="rounded border overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
               <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] uppercase tracking-wider font-medium border-b" style={{ color: '#6B7A90', borderColor: '#272E3B' }}>
-                <div className="col-span-3">Name</div><div className="col-span-2">Game</div><div className="col-span-2">Manufacturer</div>
-                <div className="col-span-1">Type</div><div className="col-span-1">Version</div><div className="col-span-1">Status</div><div className="col-span-2">Registered</div>
+                <div className="col-span-3 flex items-center">Name<InfoTip description="Friendly name of the package." /></div><div className="col-span-2 flex items-center">Game<InfoTip description="Game title this package belongs to." /></div><div className="col-span-2 flex items-center">Manufacturer<InfoTip description="Vendor who produced the content." /></div>
+                <div className="col-span-1 flex items-center">Type<InfoTip description="Format (SWF, HTML5, firmware, config)." /></div><div className="col-span-1 flex items-center">Version<InfoTip description="Vendor version string." /></div><div className="col-span-1 flex items-center">Status<InfoTip description="'deployed' means at least one device is running this package. 'pending' means registered but not rolled out yet." /></div><div className="col-span-2 flex items-center">Registered<InfoTip description="When this package was added to the registry." /></div>
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {content.map(c => (
@@ -399,7 +408,7 @@ export default function ContentLabPage() {
       {/* Right — Detail Panel */}
       <div className="w-72 border-l flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: '#272E3B' }}>
-          <h2 className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Details</h2>
+          <h2 className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Details<InfoTip label="Details" description="Breakdown of the currently-selected analysis or content package — file info, version, content categories, and deployment stats." /></h2>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {analysis && !analysis.error && activeTab === 'analyzer' ? (

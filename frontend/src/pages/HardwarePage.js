@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { Cpu, Play, Check, X, Download, Funnel, Plus, FileZip, Package } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const CAT_C = { 'SAS Serial': '#00B4D8', 'G2S SOAP': '#00D97E', 'Network': '#8B5CF6', 'Offline Buffer': '#FFB800', 'Integration': '#EC4899' };
 const TYPE_C = { agent_image: '#00B4D8', firmware: '#00D97E', config: '#FFB800', provisioning: '#8B5CF6', script: '#EC4899' };
@@ -46,10 +47,11 @@ export default function HardwarePage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold flex items-center gap-3" style={{ color: '#F0F4FF' }}>
           <Cpu size={24} style={{ color: '#EC4899' }} /> Hardware & Deployment
+          <InfoTip label="Hardware & Deployment" description="Physical device inventory, integration tests, and deployment packages. Use this page to verify that cabinets, bill validators, and peripherals are talking to the platform and to push firmware or config out to agents." />
         </h1>
-        <div className="flex gap-1">{['tests', 'library'].map(t => (
+        <div className="flex items-center gap-1">{['tests', 'library'].map(t => (
           <button key={t} data-testid={`hw-tab-${t}`} onClick={() => setTab(t)} className="px-4 py-2 rounded text-xs font-medium uppercase tracking-wider" style={{ background: tab === t ? 'rgba(236,72,153,0.15)' : 'transparent', color: tab === t ? '#EC4899' : '#4A6080' }}>{t === 'tests' ? 'Integration Tests' : 'Library'}</button>
-        ))}</div>
+        ))}<InfoTip description="Integration Tests = run end-to-end checks against real hardware. Library = firmware, config, and provisioning packages you can deploy to agents." /></div>
       </div>
 
       {tab === 'tests' && (
@@ -58,11 +60,12 @@ export default function HardwarePage() {
           <div className="col-span-7 space-y-3">
             <div className="flex items-center gap-2">
               <Funnel size={14} style={{ color: '#4A6080' }} />
+              <InfoTip label="Category Filter" description="Narrow the test list to a specific protocol or layer (SAS Serial, G2S SOAP, Network, Offline Buffer, Integration)." />
               <select value={catFilter} onChange={e => setCatFilter(e.target.value)} className="px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
                 <option value="">All Categories</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <span className="text-xs font-mono" style={{ color: '#4A6080' }}>{filtered.length} tests</span>
+              <span className="flex items-center text-xs font-mono" style={{ color: '#4A6080' }}>{filtered.length} tests<InfoTip description="Number of integration tests visible with the current filter." /></span>
             </div>
             {filtered.map(t => {
               const lastResult = results.find(r => r.test_id === t.id);
@@ -76,6 +79,7 @@ export default function HardwarePage() {
                     <button data-testid={`run-test-${t.id}`} onClick={() => runTest(t.id)} disabled={running === t.id} className="flex items-center gap-1 px-3 py-1.5 rounded text-[10px] font-medium disabled:opacity-50" style={{ background: '#00D97E', color: '#070B14' }}>
                       {running === t.id ? '...' : <><Play size={12} /> Run</>}
                     </button>
+                    <InfoTip description="Execute this integration test end-to-end against live hardware. Results appear in the Test Results panel on the right." />
                   </div>
                   <p className="text-xs mb-2" style={{ color: '#8BA3CC' }}>{t.description}</p>
                   <div className="flex items-center gap-3 text-[10px] font-mono" style={{ color: '#4A6080' }}>
@@ -90,7 +94,7 @@ export default function HardwarePage() {
 
           {/* Results */}
           <div className="col-span-5 space-y-2">
-            <div className="text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Test Results ({results.length})</div>
+            <div className="flex items-center text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Test Results ({results.length})<InfoTip description="The most recent test runs, newest first. Green check = PASSED, red X = FAILED. Click-through details like duration and error messages appear per row." /></div>
             {results.map(r => (
               <div key={r.id} className="rounded border p-3" style={{ background: '#0C1322', borderColor: r.status === 'PASSED' ? '#00D97E20' : '#FF3B3B20' }}>
                 <div className="flex items-center gap-2 mb-1">
@@ -110,7 +114,7 @@ export default function HardwarePage() {
         <div className="space-y-4">
           {/* Provisioning Generator */}
           <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#8B5CF630' }}>
-            <div className="text-[10px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#8B5CF6' }}>Generate Provisioning Package</div>
+            <div className="flex items-center text-[10px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#8B5CF6' }}>Generate Provisioning Package<InfoTip description="Build a ZIP containing everything a new on-site agent needs to come online: identity, site binding, and the list of devices it should poll." /></div>
             <div className="grid grid-cols-4 gap-3">
               <input value={provForm.agent_id} onChange={e => setProvForm(p => ({ ...p, agent_id: e.target.value }))} placeholder="Agent ID (auto)" className="px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
               <input value={provForm.site_name} onChange={e => setProvForm(p => ({ ...p, site_name: e.target.value }))} placeholder="Site Name" className="px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />

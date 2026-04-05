@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { useSearchParams } from 'react-router-dom';
 import { MagnifyingGlass, Funnel, CaretRight, X, Lightning, Terminal, Plugs, ListMagnifyingGlass, CircleWavyCheck } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 function StatusBadge({ status }) {
   const c = { online: '#00D4AA', offline: '#FF3B30', error: '#FF3B30', maintenance: '#F5A623' };
@@ -100,10 +101,10 @@ export default function DevicesPage() {
       {/* Filter Rail */}
       <div className="w-60 border-r p-4 space-y-4 flex-shrink-0 overflow-y-auto" style={{ background: '#12151C', borderColor: '#272E3B' }}>
         <h2 className="font-heading text-base font-semibold flex items-center gap-2" style={{ color: '#E8ECF1' }}>
-          <Funnel size={16} /> Filters
+          <Funnel size={16} /> Filters<InfoTip label="Filters" description="Narrow the device list using any combination of search, status, protocol and manufacturer. Handy when you're only looking after one bank or vendor at a time." />
         </h2>
         <div>
-          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium" style={{ color: '#6B7A90' }}>Search</label>
+          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium flex items-center" style={{ color: '#6B7A90' }}>Search<InfoTip label="Search" description="Type any part of a device ID, manufacturer or model to find it quickly. Results update as you type." /></label>
           <div className="relative">
             <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: '#6B7A90' }} />
             <input
@@ -117,21 +118,21 @@ export default function DevicesPage() {
           </div>
         </div>
         <div>
-          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium" style={{ color: '#6B7A90' }}>Status</label>
+          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium flex items-center" style={{ color: '#6B7A90' }}>Status<InfoTip label="Status" description="Show only devices in a specific state — online, offline, error, or maintenance. Use this when you're hunting for what needs attention." /></label>
           <select data-testid="device-status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
             <option value="">All</option>
             {filters?.statuses?.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium" style={{ color: '#6B7A90' }}>Protocol</label>
+          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium flex items-center" style={{ color: '#6B7A90' }}>Protocol<InfoTip label="Protocol" description="Filter by the communication protocol the machine speaks (SAS, G2S, etc.). Useful when troubleshooting a connector or rolling out a protocol-specific change." /></label>
           <select data-testid="device-protocol-filter" value={protocolFilter} onChange={e => setProtocolFilter(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
             <option value="">All</option>
             {filters?.protocols?.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium" style={{ color: '#6B7A90' }}>Manufacturer</label>
+          <label className="block text-[11px] uppercase tracking-wider mb-1.5 font-medium flex items-center" style={{ color: '#6B7A90' }}>Manufacturer<InfoTip label="Manufacturer" description="Show only devices from one vendor, like IGT or Aristocrat. Useful when a vendor firmware issue is going around." /></label>
           <select data-testid="device-mfr-filter" value={mfrFilter} onChange={e => setMfrFilter(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
             <option value="">All</option>
             {filters?.manufacturers?.map(m => <option key={m} value={m}>{m}</option>)}
@@ -146,13 +147,13 @@ export default function DevicesPage() {
       <div className={`flex-1 overflow-y-auto ${selected ? '' : ''}`} style={{ background: '#0A0C10' }}>
         <div className="sticky top-0 z-10 border-b" style={{ background: '#12151C', borderColor: '#272E3B' }}>
           <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[11px] uppercase tracking-wider font-medium" style={{ color: '#6B7A90' }}>
-            <div className="col-span-1">Status</div>
-            <div className="col-span-2">Device Ref</div>
-            <div className="col-span-2">Manufacturer</div>
-            <div className="col-span-2">Model</div>
-            <div className="col-span-1">Protocol</div>
-            <div className="col-span-2">Last Seen</div>
-            <div className="col-span-2">Actions</div>
+            <div className="col-span-1 flex items-center">Status<InfoTip label="Status" description="The device's current operating state: green is online and healthy, red is offline or errored, amber is in maintenance." /></div>
+            <div className="col-span-2 flex items-center">Device Ref<InfoTip label="Device Ref" description="The unique identifier you assigned to this machine on the floor — usually matches the asset tag or stand number." /></div>
+            <div className="col-span-2 flex items-center">Manufacturer<InfoTip label="Manufacturer" description="The company that made the machine, like IGT, Aristocrat or Konami." /></div>
+            <div className="col-span-2 flex items-center">Model<InfoTip label="Model" description="The cabinet model name as reported by the machine." /></div>
+            <div className="col-span-1 flex items-center">Protocol<InfoTip label="Protocol" description="The communication protocol the machine uses to talk to the platform (SAS, G2S, etc.)." /></div>
+            <div className="col-span-2 flex items-center">Last Seen<InfoTip label="Last Seen" description="The last time the platform received any message from this device. If this is more than a few minutes ago and the device should be online, something's wrong." /></div>
+            <div className="col-span-2 flex items-center">Actions<InfoTip label="Actions" description="Click the row to open the detail panel where you can run commands on the device." /></div>
           </div>
         </div>
         {devices.map(d => (
@@ -193,18 +194,24 @@ export default function DevicesPage() {
 
           {/* Tabs */}
           <div className="flex border-b" style={{ borderColor: '#272E3B' }}>
-            {['overview', 'events', 'commands', 'connector', 'audit'].map(tab => (
+            {[
+              { id: 'overview', tip: 'A snapshot of this machine — status, firmware, game, denomination and its capabilities.' },
+              { id: 'events', tip: 'Recent events reported by this device, newest first. Start here when you want to know what the machine has been doing.' },
+              { id: 'commands', tip: 'Commands that have been sent to this device and what happened to each one (queued, completed or failed).' },
+              { id: 'connector', tip: 'Technical details about which connector and protocol version the device is paired with. Useful when comparing notes with a vendor.' },
+              { id: 'audit', tip: 'A history of configuration and ownership changes for this device, for compliance and troubleshooting.' },
+            ].map(({ id: tab, tip }) => (
               <button
                 key={tab}
                 data-testid={`device-tab-${tab}`}
                 onClick={() => setActiveTab(tab)}
-                className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors"
+                className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors inline-flex items-center"
                 style={{
                   color: activeTab === tab ? '#00D4AA' : '#6B7A90',
                   borderBottom: activeTab === tab ? '2px solid #00D4AA' : '2px solid transparent',
                 }}
               >
-                {tab}
+                {tab}<InfoTip label={tab} description={tip} />
               </button>
             ))}
           </div>
@@ -261,10 +268,13 @@ export default function DevicesPage() {
                     </div>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <button data-testid="cmd-disable-btn" onClick={() => sendCommand('device.disable')} className="px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(255,59,48,0.1)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.2)' }}>Disable</button>
+                  <InfoTip label="Disable" description="Takes this machine out of service immediately so players can't use it. Use when you need to lock a device pending maintenance or investigation." />
                   <button data-testid="cmd-enable-btn" onClick={() => sendCommand('device.enable')} className="px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA', border: '1px solid rgba(0,212,170,0.2)' }}>Enable</button>
+                  <InfoTip label="Enable" description="Puts the machine back into service so players can sit down and play. Use after a disable, once the issue is resolved." />
                   <button data-testid="cmd-message-btn" onClick={() => sendCommand('device.send_message')} className="px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,122,255,0.1)', color: '#007AFF', border: '1px solid rgba(0,122,255,0.2)' }}>Send Message</button>
+                  <InfoTip label="Send Message" description="Displays a short message on the machine's player screen. Handy for calling a player to the cage or giving a service notice." />
                 </div>
               </div>
             )}

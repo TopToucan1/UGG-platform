@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { Trophy, CurrencyDollar, Lightning, Funnel, ArrowUp } from '@phosphor-icons/react';
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import InfoTip from '@/components/InfoTip';
 
 const COLORS = ['#FFD700', '#00D4AA', '#007AFF', '#F5A623', '#FF3B30', '#8B5CF6', '#EC4899', '#06B6D4'];
 const STATUS_COLORS = { active: '#00D4AA', hit_pending: '#F5A623', suspended: '#FF3B30' };
@@ -56,37 +57,39 @@ export default function JackpotPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center gap-3" style={{ color: '#E8ECF1' }}>
           <Trophy size={24} style={{ color: '#FFD700' }} /> Progressive Jackpots
+          <InfoTip label="Progressive Jackpots" description="All active and recently hit progressive jackpots across the fleet, plus live liability totals. Use to track prize pool growth and recent hits." />
         </h1>
         <div className="flex items-center gap-3">
           <Funnel size={14} style={{ color: '#6B7A90' }} />
           <select data-testid="jp-status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
             <option value="">All</option><option value="active">Active</option><option value="hit_pending">Hit Pending</option><option value="suspended">Suspended</option>
           </select>
+          <InfoTip description="Filter jackpots by status. Hit Pending means a prize has been won but not yet verified or paid out." />
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-5 gap-3" data-testid="jackpot-summary">
         <div className="rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Total Liability</div>
+          <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Total Liability<InfoTip label="Total Liability" description="Sum of every active progressive jackpot on the fleet — the money you'd owe if every one hit right now. Accountants need this for reserve tracking." /></div>
           <div className="font-mono text-lg font-bold" style={{ color: '#FFD700' }}>{fmt(sm?.total_current_liability)}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{sm?.total_jackpots || 0} jackpots</div>
         </div>
         <div className="rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Total Paid Out</div>
+          <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Total Paid Out<InfoTip label="Total Paid Out" description="Lifetime dollars paid from jackpot hits on these jackpots. Use alongside contribution rate to gauge long-run cost vs benefit." /></div>
           <div className="font-mono text-lg font-bold" style={{ color: '#00D4AA' }}>{fmt(sm?.total_paid_out)}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{sm?.total_hits || 0} total hits</div>
         </div>
         <div className="rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Active</div>
+          <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Active<InfoTip label="Active" description="Jackpots currently live and accepting contributions from player wagers." /></div>
           <div className="font-mono text-lg font-bold" style={{ color: '#00D4AA' }}>{sm?.active || 0}</div>
         </div>
         <div className="rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Hit Pending</div>
+          <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Hit Pending<InfoTip label="Hit Pending" description="Jackpots that have been won but not yet verified and paid to the player. These need operator action." /></div>
           <div className="font-mono text-lg font-bold" style={{ color: '#F5A623' }}>{sm?.hit_pending || 0}</div>
         </div>
         <div className="rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Linked Devices</div>
+          <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Linked Devices<InfoTip label="Linked Devices" description="Total machines contributing to any progressive jackpot. More devices feeding a pool grow it faster." /></div>
           <div className="font-mono text-lg font-bold" style={{ color: '#007AFF' }}>{sm?.total_linked_devices || 0}</div>
         </div>
       </div>
@@ -94,7 +97,7 @@ export default function JackpotPage() {
       {/* Charts */}
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-8 rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="jp-top-chart">
-          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Top Jackpots by Current Amount</div>
+          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Top Jackpots by Current Amount<InfoTip description="Which progressive pools have grown the largest. Bigger pools attract more players, so these are the ones to feature." /></div>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={charts?.top_jackpots || []} barSize={24}>
               <XAxis dataKey="name" tick={{ fill: '#6B7A90', fontSize: 9 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
@@ -107,7 +110,7 @@ export default function JackpotPage() {
           </ResponsiveContainer>
         </div>
         <div className="col-span-4 rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="jp-hits-chart">
-          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Daily Hits (30d)</div>
+          <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Daily Hits (30d)<InfoTip description="Number of jackpot hits per day for the last 30 days. Spikes may reflect a high-traffic day or a big pool reaching its cap." /></div>
           <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={(charts?.daily_hits || []).slice(-14)}>
               <defs><linearGradient id="hitG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FFD700" stopOpacity={0.3}/><stop offset="95%" stopColor="#FFD700" stopOpacity={0}/></linearGradient></defs>
@@ -158,8 +161,9 @@ export default function JackpotPage() {
         <div className="col-span-5 rounded border flex flex-col overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
           <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: '#272E3B' }}>
             <Lightning size={16} style={{ color: '#FFD700' }} />
-            <span className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>
+            <span className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>
               {selected ? `Hits — ${selected.name}` : 'Recent Hits'}
+              <InfoTip label="Hit History" description="Recent jackpot wins with amount, time, device, and winning player (if carded). Select a jackpot card to see only its hits." />
             </span>
           </div>
           <div className="flex-1 overflow-y-auto" data-testid="hit-history">

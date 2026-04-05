@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';
 import { Plugs, Plus, CheckCircle, Clock, ArrowRight, Trash, FloppyDisk, RocketLaunch, ArrowsClockwise, Check, X, CaretRight, Warning } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const SOURCE_FIELDS = ['device_id', 'event_code', 'timestamp', 'meter_value', 'error_code', 'player_id', 'game_id', 'denomination', 'bet_amount', 'win_amount', 'door_status', 'voucher_barcode'];
 const CANONICAL_FIELDS = ['event_id', 'tenant_id', 'site_id', 'device_id', 'event_type', 'occurred_at', 'payload', 'severity', 'source_protocol', 'integrity_hash', 'correlation_id', 'session_id', 'schema_version'];
@@ -153,8 +154,8 @@ export default function ConnectorBuilderPage() {
       {/* Left — Connector List */}
       <div className="w-64 border-r flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#272E3B' }}>
-          <h2 className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Connectors</h2>
-          <button data-testid="create-connector-btn" onClick={() => setShowCreate(true)} className="p-1 rounded" style={{ color: '#00D4AA' }}><Plus size={16} /></button>
+          <h2 className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Connectors<InfoTip label="Connectors" description="A connector is a configured adapter that pulls or receives event data from a source system (EGM, CMS, log file, etc.) and normalizes it into the platform's canonical event schema." /></h2>
+          <button data-testid="create-connector-btn" onClick={() => setShowCreate(true)} className="p-1 rounded" style={{ color: '#00D4AA' }} title="New connector"><Plus size={16} /></button>
         </div>
         {showCreate && (
           <div className="p-3 border-b space-y-2" style={{ borderColor: '#272E3B' }}>
@@ -187,26 +188,33 @@ export default function ConnectorBuilderPage() {
       <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#0A0C10' }}>
         {/* Panel Tabs */}
         <div className="flex items-center border-b px-4" style={{ borderColor: '#272E3B', background: '#12151C' }}>
-          {[{ id: 'mapping', label: 'Field Mapping' }, { id: 'deploy', label: 'Deployments' }].map(t => (
-            <button key={t.id} data-testid={`panel-tab-${t.id}`} onClick={() => setActivePanel(t.id)}
-              className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors"
-              style={{ color: activePanel === t.id ? '#00D4AA' : '#6B7A90', borderBottom: activePanel === t.id ? '2px solid #00D4AA' : '2px solid transparent' }}>
-              {t.label}
-            </button>
+          {[{ id: 'mapping', label: 'Field Mapping', tip: 'Drag source fields from the connector onto the canonical (platform-standard) fields so events from this source line up with the rest of the system.' }, { id: 'deploy', label: 'Deployments', tip: 'Roll out a new version of this connector to real devices. Supports canary (gradual) and full rollouts, with health checks and rollback.' }].map(t => (
+            <span key={t.id} className="flex items-center">
+              <button data-testid={`panel-tab-${t.id}`} onClick={() => setActivePanel(t.id)}
+                className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors"
+                style={{ color: activePanel === t.id ? '#00D4AA' : '#6B7A90', borderBottom: activePanel === t.id ? '2px solid #00D4AA' : '2px solid transparent' }}>
+                {t.label}
+              </button>
+              <InfoTip label={t.label} description={t.tip} />
+            </span>
           ))}
           {selected && activePanel === 'mapping' && (
             <div className="ml-auto flex items-center gap-2">
-              <span className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{mappings.length} mappings</span>
+              <span className="text-[10px] font-mono flex items-center" style={{ color: '#6B7A90' }}>{mappings.length} mappings<InfoTip description="Number of source-to-canonical field mappings currently defined for this connector." /></span>
               <button data-testid="save-mappings-btn" onClick={saveMappings} disabled={saving}
                 className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
                 <FloppyDisk size={14} /> {saving ? 'Saving...' : 'Save'}
               </button>
+              <InfoTip label="Save Mappings" description="Persist the current field mappings to the connector. Does not deploy — use the Deployments tab to push to devices." />
             </div>
           )}
           {selected && activePanel === 'deploy' && (
-            <button data-testid="new-deploy-btn" onClick={() => setShowDeploy(true)} className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
-              <RocketLaunch size={14} /> New Deployment
-            </button>
+            <span className="ml-auto flex items-center">
+              <button data-testid="new-deploy-btn" onClick={() => setShowDeploy(true)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
+                <RocketLaunch size={14} /> New Deployment
+              </button>
+              <InfoTip label="New Deployment" description="Roll out the approved manifest version of this connector to its target devices. You pick a strategy (canary or full) on the next step." />
+            </span>
           )}
         </div>
 
@@ -228,7 +236,7 @@ export default function ConnectorBuilderPage() {
             <div className="relative z-10 flex items-start justify-center gap-16">
               {/* Source fields */}
               <div className="w-56">
-                <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Source Fields (drag)</div>
+                <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Source Fields (drag)<InfoTip label="Source Fields" description="The raw field names coming from the source system (e.g. device_id, meter_value). Drag each onto a canonical field on the right to create a mapping." /></div>
                 <div className="space-y-1.5">
                   {SOURCE_FIELDS.map((f, i) => {
                     const isMapped = mappedSources.includes(f);
@@ -248,7 +256,7 @@ export default function ConnectorBuilderPage() {
 
               {/* Center — Active Mappings */}
               <div className="w-48 pt-8">
-                <div className="text-[11px] uppercase tracking-wider mb-3 font-medium text-center" style={{ color: '#6B7A90' }}>Active Mappings</div>
+                <div className="text-[11px] uppercase tracking-wider mb-3 font-medium text-center flex items-center justify-center" style={{ color: '#6B7A90' }}>Active Mappings<InfoTip label="Active Mappings" description="The source-to-canonical field links you've created. These are what will be used to translate incoming events." /></div>
                 {mappings.length === 0 ? (
                   <div className="text-center text-[10px] py-6" style={{ color: '#6B7A90' }}>
                     Drag source fields onto canonical targets to create mappings
@@ -271,7 +279,7 @@ export default function ConnectorBuilderPage() {
 
               {/* Canonical fields (drop targets) */}
               <div className="w-56">
-                <div className="text-[11px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#6B7A90' }}>Canonical Fields (drop)</div>
+                <div className="text-[11px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#6B7A90' }}>Canonical Fields (drop)<InfoTip label="Canonical Fields" description="The platform's standard event schema — every connector's data ends up here. Mapping to canonical fields means dashboards, rules and reports work no matter which source the event came from." /></div>
                 <div className="space-y-1.5">
                   {CANONICAL_FIELDS.map((f, i) => {
                     const isMapped = mappedTargets.includes(f);
@@ -298,10 +306,10 @@ export default function ConnectorBuilderPage() {
             {/* New Deployment Form */}
             {showDeploy && (
               <div className="rounded border p-4 space-y-3" style={{ background: '#12151C', borderColor: '#00D4AA40' }}>
-                <h3 className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>New Deployment</h3>
+                <h3 className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>New Deployment<InfoTip label="New Deployment" description="Configure how this connector version will be pushed to devices. Canary lets you test on a small slice first; Full rolls out to every device immediately." /></h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Strategy</label>
+                    <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Strategy<InfoTip description="Canary = gradual rollout with health checks between phases. Full = deploy to all devices at once (faster but riskier)." /></label>
                     <select data-testid="deploy-strategy" value={deployStrategy} onChange={e => setDeployStrategy(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
                       <option value="canary">Canary (Progressive)</option>
                       <option value="full">Full Rollout</option>
@@ -309,7 +317,7 @@ export default function ConnectorBuilderPage() {
                   </div>
                   {deployStrategy === 'canary' && (
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>Canary %</label>
+                      <label className="block text-[10px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>Canary %<InfoTip description="Percentage of target devices that receive the new version in the first phase. Typical starting value: 5%. If health checks pass, the deployment can be promoted to more devices." /></label>
                       <input data-testid="canary-percent" type="number" min={1} max={50} value={canaryPercent} onChange={e => setCanaryPercent(parseInt(e.target.value) || 5)}
                         className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }} />
                     </div>
@@ -319,6 +327,7 @@ export default function ConnectorBuilderPage() {
                   <button data-testid="start-deploy-btn" onClick={startDeploy} className="flex items-center gap-1 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00D4AA', color: '#0A0C10' }}>
                     <RocketLaunch size={14} /> Create Deployment
                   </button>
+                  <InfoTip label="Create Deployment" description="Record the deployment plan. It starts in 'pending approval' — someone with deploy rights must approve before it actually runs." />
                   <button onClick={() => setShowDeploy(false)} className="px-4 py-2 rounded text-xs" style={{ color: '#6B7A90' }}>Cancel</button>
                 </div>
               </div>
@@ -374,23 +383,31 @@ export default function ConnectorBuilderPage() {
                 {/* Actions */}
                 <div className="flex gap-2">
                   {dep.status === 'pending_approval' && (
-                    <button data-testid={`approve-deploy-${dep.id}`} onClick={() => approveDeploy(dep.id)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>
-                      <CheckCircle size={14} /> Approve
-                    </button>
+                    <>
+                      <button data-testid={`approve-deploy-${dep.id}`} onClick={() => approveDeploy(dep.id)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>
+                        <CheckCircle size={14} /> Approve
+                      </button>
+                      <InfoTip label="Approve" description="Sign off on this deployment so it can start. Usually a second pair of eyes before a real rollout." />
+                    </>
                   )}
                   {dep.status === 'approved' && (
-                    <button data-testid={`start-deploy-phase-${dep.id}`} onClick={() => startDeployPhase(dep.id)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,122,255,0.1)', color: '#007AFF' }}>
-                      <RocketLaunch size={14} /> Start
-                    </button>
+                    <>
+                      <button data-testid={`start-deploy-phase-${dep.id}`} onClick={() => startDeployPhase(dep.id)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,122,255,0.1)', color: '#007AFF' }}>
+                        <RocketLaunch size={14} /> Start
+                      </button>
+                      <InfoTip label="Start" description="Kick off the first phase of the rollout on real devices." />
+                    </>
                   )}
                   {dep.status === 'in_progress' && (
                     <>
                       <button data-testid={`promote-deploy-${dep.id}`} onClick={() => promoteDeploy(dep.id)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>
                         <CaretRight size={14} /> Promote
                       </button>
+                      <InfoTip label="Promote" description="Advance the canary to the next phase (more devices). Only do this if health checks in the current phase look good." />
                       <button data-testid={`rollback-deploy-${dep.id}`} onClick={() => rollbackDeploy(dep.id)} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium" style={{ background: 'rgba(255,59,48,0.1)', color: '#FF3B30' }}>
                         <ArrowsClockwise size={14} /> Rollback
                       </button>
+                      <InfoTip label="Rollback" description="Revert all devices in this deployment back to the previous connector version. Use if the new version is causing errors." />
                     </>
                   )}
                 </div>
@@ -413,7 +430,7 @@ export default function ConnectorBuilderPage() {
       {/* Right — Preview & Validation */}
       <div className="w-72 border-l flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: '#272E3B' }}>
-          <h2 className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Preview & Validation</h2>
+          <h2 className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Preview & Validation<InfoTip label="Preview & Validation" description="Quick sanity check of the selected connector — shows what was mapped, how complete the mapping is, and which manifest versions exist." /></h2>
         </div>
         {detail ? (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -427,7 +444,7 @@ export default function ConnectorBuilderPage() {
               </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#6B7A90' }}>Mapping Coverage</div>
+              <div className="text-[11px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#6B7A90' }}>Mapping Coverage<InfoTip label="Mapping Coverage" description="What percent of the platform's canonical fields have been mapped from this source. Higher coverage means more of your dashboards and rules will work out of the box." /></div>
               <div className="rounded border p-3" style={{ background: '#1A1E2A', borderColor: '#272E3B' }}>
                 <div className="flex justify-between text-xs mb-1"><span style={{ color: '#6B7A90' }}>Coverage</span><span className="font-mono" style={{ color: '#00D4AA' }}>{Math.round((mappings.length / CANONICAL_FIELDS.length) * 100)}%</span></div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#272E3B' }}>
@@ -439,7 +456,7 @@ export default function ConnectorBuilderPage() {
               </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#6B7A90' }}>Manifests</div>
+              <div className="text-[11px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#6B7A90' }}>Manifests<InfoTip label="Manifests" description="A manifest is a snapshot of a connector's configuration (mappings, version, settings) that can be approved and deployed. Only 'approved' manifests can be rolled out." /></div>
               {detail.manifests?.map(m => (
                 <div key={m.id} className="rounded border p-3 mb-2 text-xs" style={{ background: '#1A1E2A', borderColor: '#272E3B' }}>
                   <div className="flex items-center justify-between mb-1">
@@ -448,10 +465,13 @@ export default function ConnectorBuilderPage() {
                   </div>
                   <div className="font-mono" style={{ color: '#6B7A90' }}>v{m.version} | {m.field_mappings} fields</div>
                   {m.status === 'draft' && (
-                    <button data-testid={`approve-manifest-${m.id}`} onClick={() => approveManifest(detail.id, m.id)}
-                      className="mt-2 px-3 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>
-                      <CheckCircle size={14} /> Approve
-                    </button>
+                    <span className="inline-flex items-center">
+                      <button data-testid={`approve-manifest-${m.id}`} onClick={() => approveManifest(detail.id, m.id)}
+                        className="mt-2 px-3 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>
+                        <CheckCircle size={14} /> Approve
+                      </button>
+                      <InfoTip label="Approve Manifest" description="Mark this manifest draft as approved so it becomes eligible for deployment." />
+                    </span>
                   )}
                 </div>
               ))}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { Sparkle, Wrench, CurrencyDollar, Warning, MagnifyingGlass, PaperPlaneTilt, Clock, Lightning } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const ANALYSIS_TYPES = [
-  { id: 'predictive', label: 'Predictive Maintenance', icon: Wrench, color: '#FF3B3B', desc: 'Predict device failures before they happen' },
-  { id: 'forecast', label: 'NOR Forecast', icon: CurrencyDollar, color: '#00D97E', desc: 'Revenue predictions for 7 and 30 days' },
-  { id: 'exceptions', label: 'Exception Patterns', icon: Warning, color: '#FFB800', desc: 'Pattern analysis across all exceptions' },
-  { id: 'query', label: 'Ask Anything', icon: MagnifyingGlass, color: '#00B4D8', desc: 'Natural language query about your estate' },
+  { id: 'predictive', label: 'Predictive Maintenance', icon: Wrench, color: '#FF3B3B', desc: 'Predict device failures before they happen', tip: 'Runs ML models over recent events, meters and error history to flag which EGMs are most likely to fault this week, so you can send a tech before a player sees an out-of-service light.' },
+  { id: 'forecast', label: 'NOR Forecast', icon: CurrencyDollar, color: '#00D97E', desc: 'Revenue predictions for 7 and 30 days', tip: 'NOR = Net Operating Revenue (coin-in minus coin-out, plus other revenue). This produces a 7-day and 30-day forecast based on historical trends.' },
+  { id: 'exceptions', label: 'Exception Patterns', icon: Warning, color: '#FFB800', desc: 'Pattern analysis across all exceptions', tip: 'Looks across every exception the platform has seen and groups them into patterns — "15 devices failing the same way in the same hour" — so you can fix root causes instead of tickets.' },
+  { id: 'query', label: 'Ask Anything', icon: MagnifyingGlass, color: '#00B4D8', desc: 'Natural language query about your estate', tip: 'Type a question in plain English ("which denominations are most profitable on weekends?") and the AI will query the data and answer.' },
 ];
 
 export default function AIAnalyticsPage() {
@@ -61,6 +62,7 @@ export default function AIAnalyticsPage() {
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
             <Sparkle size={16} weight="fill" style={{ color: '#FFB800' }} /> AI Analytics
+            <InfoTip label="AI Analytics" description="AI-driven insights over your gaming estate. Run pre-built analyses (maintenance, revenue forecast, exception patterns) or ask free-form questions in plain English." />
           </h2>
           <div className="text-[10px] mt-0.5" style={{ color: '#4A6080' }}>Powered by Gemini 3 Flash</div>
         </div>
@@ -75,6 +77,7 @@ export default function AIAnalyticsPage() {
               <div className="flex items-center gap-2 mb-1">
                 <t.icon size={16} style={{ color: t.color }} />
                 <span className="text-xs font-semibold" style={{ color: '#F0F4FF' }}>{t.label}</span>
+                <InfoTip label={t.label} description={t.tip} />
               </div>
               <div className="text-[10px]" style={{ color: '#4A6080' }}>{t.desc}</div>
             </button>
@@ -82,7 +85,7 @@ export default function AIAnalyticsPage() {
         </div>
 
         {/* History */}
-        <div className="px-3 py-2 text-[9px] uppercase tracking-widest font-medium" style={{ color: '#4A6080' }}>History</div>
+        <div className="px-3 py-2 text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#4A6080' }}>History<InfoTip description="Recent analyses that have been run on this estate. Click any row to re-display its results." /></div>
         <div className="flex-1 overflow-y-auto px-3">
           {history.map(h => {
             const typeConfig = ANALYSIS_TYPES.find(t => t.id === h.type || (h.type === 'predictive_maintenance' && t.id === 'predictive') || (h.type === 'nor_forecast' && t.id === 'forecast') || (h.type === 'exception_patterns' && t.id === 'exceptions'));
@@ -113,6 +116,7 @@ export default function AIAnalyticsPage() {
               className="px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: '#00B4D8', color: '#070B14' }}>
               <PaperPlaneTilt size={18} />
             </button>
+            <InfoTip label="Ask" description="Send your plain-English question to the AI. It has live access to devices, events, NOR, exceptions and digital twin data for this estate." />
           </div>
         </div>
 

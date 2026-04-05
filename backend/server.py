@@ -50,6 +50,7 @@ from routes.pirs import router as pirs_router
 from routes.setup import router as setup_router
 from routes.gamification import router as gamification_router
 from routes.developer_sdk import router as developer_sdk_router
+from routes.players_pin import router as players_pin_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -126,6 +127,7 @@ app.include_router(pirs_router)
 app.include_router(setup_router)
 app.include_router(gamification_router)
 app.include_router(developer_sdk_router)
+app.include_router(players_pin_router)
 
 
 @app.get("/api")
@@ -161,6 +163,10 @@ async def startup():
         await db.events.create_index([("occurred_at", -1)])
         await db.devices.create_index("id")
 
+        # Session engine indexes (PIN-based player tracking)
+        from session_engine import ensure_indexes as ensure_session_indexes
+        await ensure_session_indexes()
+
         # Start Gateway Core pipeline (needed for real devices)
         from gateway_core import gateway_core
         await gateway_core.start()
@@ -181,6 +187,13 @@ async def startup():
         # Start Gateway Core event pipeline
         from gateway_core import gateway_core
         await gateway_core.start()
+        # Session engine indexes (PIN-based player tracking)
+        from session_engine import ensure_indexes as ensure_session_indexes
+        await ensure_session_indexes()
+        # Seed demo PIN players and start session simulator
+        from session_demo import seed_demo_pin_players, start_session_demo
+        await seed_demo_pin_players()
+        start_session_demo()
         from routes.hardware import seed_library
         await seed_library()
         from routes.route_v2 import seed_route_v2

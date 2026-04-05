@@ -8,6 +8,7 @@ import {
 } from '@phosphor-icons/react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Marquee from 'react-fast-marquee';
+import InfoTip from '@/components/InfoTip';
 
 const STATUS_C = { online: '#00D4AA', offline: '#FF3B30', error: '#FF3B30', maintenance: '#F5A623' };
 const SEV_C = { critical: '#FF3B30', warning: '#F5A623', info: '#007AFF' };
@@ -112,7 +113,8 @@ export default function CommandCenterPage() {
         <div className="flex items-center gap-3">
           <button data-testid="exit-command-center" onClick={() => navigate('/')} className="flex items-center gap-1.5 text-xs transition-colors" style={{ color: '#6B7A90' }}>
             <ArrowLeft size={14} /> Exit
-          </button>
+          </button><InfoTip label="Exit" description="Leaves the full-screen command center and returns you to the normal dashboard." />
+          <InfoTip label="Command Center" description="A big-screen, read-only floor overview designed for a control room. Everything updates live — device health, jackpots, VIP players and alerts — so you can spot a problem from across the room." />
           <div className="w-px h-4" style={{ background: '#272E3B' }} />
           <div className="flex items-center gap-2">
             <Cpu size={16} weight="bold" style={{ color: '#00D4AA' }} />
@@ -135,32 +137,32 @@ export default function CommandCenterPage() {
 
         {/* === ROW 1: KPI Strip (spans full width) === */}
         <div className="col-span-2 row-span-1 p-3 flex flex-col justify-center" style={{ background: '#0A0C10' }}>
-          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#6B7A90' }}>Devices</div>
+          <div className="text-[9px] uppercase tracking-widest mb-1 flex items-center" style={{ color: '#6B7A90' }}>Devices<InfoTip label="Devices" description="Total devices on the floor, with a live breakdown of how many are online, offline or in error. Keep an eye on the 'err' number — each one is a machine not earning." /></div>
           <div className="font-mono text-2xl font-black" style={{ color: '#00D4AA' }}>{s?.devices?.total ?? '--'}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{s?.devices?.online ?? 0} on | {s?.devices?.offline ?? 0} off | {s?.devices?.error ?? 0} err</div>
         </div>
         <div className="col-span-2 row-span-1 p-3 flex flex-col justify-center" style={{ background: '#0A0C10' }}>
-          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#6B7A90' }}>Active Alerts</div>
+          <div className="text-[9px] uppercase tracking-widest mb-1 flex items-center" style={{ color: '#6B7A90' }}>Active Alerts<InfoTip label="Active Alerts" description="Unresolved alerts across the floor. The subline splits them by severity — critical first, warning second. If critical isn't zero, action is needed now." /></div>
           <div className="font-mono text-2xl font-black" style={{ color: '#FF3B30' }}>{s?.alerts?.active ?? '--'}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{s?.alerts?.critical ?? 0} crit | {s?.alerts?.warning ?? 0} warn</div>
         </div>
         <div className="col-span-2 row-span-1 p-3 flex flex-col justify-center" style={{ background: '#0A0C10' }}>
-          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#6B7A90' }}>Coin In</div>
+          <div className="text-[9px] uppercase tracking-widest mb-1 flex items-center" style={{ color: '#6B7A90' }}>Coin In<InfoTip label="Coin In" description="Total money wagered across the floor today. The 'Hold' underneath is what the house is keeping as a percentage." /></div>
           <div className="font-mono text-2xl font-black" style={{ color: '#007AFF' }}>{fmt(finSummary?.coin_in)}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>Hold: {finSummary?.hold_percentage ?? 0}%</div>
         </div>
         <div className="col-span-2 row-span-1 p-3 flex flex-col justify-center" style={{ background: '#0A0C10' }}>
-          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#6B7A90' }}>JP Liability</div>
+          <div className="text-[9px] uppercase tracking-widest mb-1 flex items-center" style={{ color: '#6B7A90' }}>JP Liability<InfoTip label="JP Liability" description="The total amount currently owed if every progressive jackpot hit right now. 'Active' is how many progressives are running, 'hits' is how many have paid out today." /></div>
           <div className="font-mono text-2xl font-black" style={{ color: '#FFD700' }}>{fmt(jpSummary?.total_current_liability)}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>{jpSummary?.active ?? 0} active | {jpSummary?.total_hits ?? 0} hits</div>
         </div>
         <div className="col-span-2 row-span-1 p-3 flex flex-col justify-center" style={{ background: '#0A0C10' }}>
-          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#6B7A90' }}>Events</div>
+          <div className="text-[9px] uppercase tracking-widest mb-1 flex items-center" style={{ color: '#6B7A90' }}>Events<InfoTip label="Events" description="Total standardized events the platform has processed. Useful as a heartbeat — if this stops moving, the pipeline has stalled." /></div>
           <div className="font-mono text-2xl font-black" style={{ color: '#E8ECF1' }}>{s?.events?.total ?? '--'}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>canonical total</div>
         </div>
         <div className="col-span-2 row-span-1 p-3 flex flex-col justify-center" style={{ background: '#0A0C10' }}>
-          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#6B7A90' }}>Active Players</div>
+          <div className="text-[9px] uppercase tracking-widest mb-1 flex items-center" style={{ color: '#6B7A90' }}>Active Players<InfoTip label="Active Players" description="Number of players sitting at a machine with their loyalty card inserted right now." /></div>
           <div className="font-mono text-2xl font-black" style={{ color: '#8B5CF6' }}>{activeSessions.length}</div>
           <div className="text-[10px] font-mono" style={{ color: '#6B7A90' }}>sessions now</div>
         </div>
@@ -168,7 +170,7 @@ export default function CommandCenterPage() {
         {/* === ROW 2-3: Device Map (left) + Event Volume Chart (center) + Event Feed (right) === */}
         <div className="col-span-5 row-span-2 p-3 flex flex-col overflow-hidden" style={{ background: '#0A0C10' }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: '#6B7A90' }}>Device Health Map</span>
+            <span className="text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#6B7A90' }}>Device Health Map<InfoTip label="Device Health Map" description="A tile for every device on the floor, color-coded by status. Green is online, red is offline or errored, amber is maintenance. A fast visual way to spot clusters of trouble." /></span>
             <div className="flex gap-2 text-[8px]" style={{ color: '#6B7A90' }}>
               <span className="flex items-center gap-0.5"><SealCheck size={8} style={{ color: '#00D4AA' }} />On</span>
               <span className="flex items-center gap-0.5"><WifiX size={8} style={{ color: '#FF3B30' }} />Off</span>
@@ -187,7 +189,7 @@ export default function CommandCenterPage() {
         </div>
 
         <div className="col-span-4 row-span-2 p-3 flex flex-col" style={{ background: '#0A0C10' }}>
-          <span className="text-[9px] uppercase tracking-widest font-medium mb-2" style={{ color: '#6B7A90' }}>Event Volume (24h)</span>
+          <span className="text-[9px] uppercase tracking-widest font-medium mb-2 flex items-center" style={{ color: '#6B7A90' }}>Event Volume (24h)<InfoTip label="Event Volume (24h)" description="Hour-by-hour count of events flowing in for the last day. A flatline means the pipeline has stopped; a spike usually means an incident is unfolding." /></span>
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={charts?.hourly_event_volume || []}>
@@ -222,7 +224,7 @@ export default function CommandCenterPage() {
 
         <div className="col-span-3 row-span-2 flex flex-col overflow-hidden" style={{ background: '#0A0C10' }}>
           <div className="px-3 pt-3 pb-1 flex items-center justify-between">
-            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: '#6B7A90' }}>Live Event Feed</span>
+            <span className="text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#6B7A90' }}>Live Event Feed<InfoTip label="Live Event Feed" description="Every event from every device as it arrives. Newest at the top. Watch this to get a feel for what's happening in real time." /></span>
             <span className={`w-1.5 h-1.5 rounded-full ${wsConnected ? 'pulse-online' : ''}`} style={{ background: wsConnected ? '#00D4AA' : '#FF3B30' }} />
           </div>
           <div className="flex-1 overflow-y-auto" data-testid="cc-event-feed">
@@ -243,7 +245,7 @@ export default function CommandCenterPage() {
         <div className="col-span-5 row-span-2 p-3 flex flex-col overflow-hidden" style={{ background: '#0A0C10' }}>
           <div className="flex items-center gap-2 mb-2">
             <Trophy size={14} style={{ color: '#FFD700' }} />
-            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: '#6B7A90' }}>Progressive Jackpots</span>
+            <span className="text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#6B7A90' }}>Progressive Jackpots<InfoTip label="Progressive Jackpots" description="Live status of your progressive jackpot pools. The bar shows how close each one is to its ceiling — as it gets near the top, a hit becomes more likely." /></span>
           </div>
           <div className="flex-1 overflow-y-auto space-y-1.5" data-testid="cc-jackpots">
             {jackpots.slice(0, 6).map(jp => {
@@ -272,7 +274,7 @@ export default function CommandCenterPage() {
         <div className="col-span-4 row-span-2 p-3 flex flex-col overflow-hidden" style={{ background: '#0A0C10' }}>
           <div className="flex items-center gap-2 mb-2">
             <Crown size={14} weight="fill" style={{ color: '#FFD700' }} />
-            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: '#6B7A90' }}>VIP Player Alerts</span>
+            <span className="text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#6B7A90' }}>VIP Player Alerts<InfoTip label="VIP Player Alerts" description="Real-time notifications when a Platinum or Diamond tier player cards in. Use these to dispatch hosts for a personal welcome." /></span>
           </div>
           <div className="flex-1 overflow-y-auto space-y-1" data-testid="cc-vip-alerts">
             {vipAlerts.length === 0 ? (
@@ -311,7 +313,7 @@ export default function CommandCenterPage() {
         <div className="col-span-3 row-span-2 p-3 flex flex-col overflow-hidden" style={{ background: '#0A0C10' }}>
           <div className="flex items-center gap-2 mb-2">
             <Users size={14} style={{ color: '#8B5CF6' }} />
-            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: '#6B7A90' }}>Active Sessions ({activeSessions.length})</span>
+            <span className="text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#6B7A90' }}>Active Sessions ({activeSessions.length})<InfoTip label="Active Sessions" description="Players currently sitting at a machine with their loyalty card inserted. Shows their tier, time in seat, amount wagered and net result so far." /></span>
           </div>
           <div className="flex-1 overflow-y-auto space-y-1" data-testid="cc-active-sessions">
             {activeSessions.slice(0, 12).map(sess => (

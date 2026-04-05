@@ -26,6 +26,7 @@ class EventPipeline:
     2. ENRICH     — Add statutory fields, resolve device/site metadata
     3. STORE      — Persist to events collection
     4. TWIN       — Update device_state_projection (digital twin)
+    4.5 SESSION   — Credit/PIN session state machine (session_engine)
     5. EXCEPTION  — Evaluate exception rules
     6. METER      — Update meter_snapshots if meter event
     7. BROADCAST  — Push to WebSocket clients
@@ -100,6 +101,9 @@ class EventPipeline:
 
             # Stage 4: DIGITAL TWIN
             await self._stage_update_twin(event)
+
+            # Stage 4.5: SESSION ENGINE (credit + PIN session state machine)
+            await self._stage_session(event)
 
             # Stage 5: EXCEPTION ENGINE
             await self._stage_check_exceptions(event)
@@ -222,6 +226,14 @@ class EventPipeline:
             {"$set": update},
             upsert=True,
         )
+
+    async def _stage_session(self, event: dict):
+        """Stage 4.5: Route event to session engine (credit + PIN session state machine)."""
+        try:
+            from session_engine import dispatch as session_dispatch
+            await session_dispatch(event)
+        except Exception as e:
+            logger.error(f"Session stage error: {e}")
 
     async def _stage_check_exceptions(self, event: dict):
         """Stage 5: Evaluate exception rules."""

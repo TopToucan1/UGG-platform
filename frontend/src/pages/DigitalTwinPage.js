@@ -6,6 +6,7 @@ import {
   Heartbeat, CircleNotch, Check, Gauge, Funnel
 } from '@phosphor-icons/react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import InfoTip from '@/components/InfoTip';
 
 const HEALTH_C = (h) => h >= 90 ? '#00D97E' : h >= 70 ? '#FFB800' : '#FF3B3B';
 const STATE_C = { ONLINE: '#00D97E', OFFLINE: '#4A6080', CLOSED: '#4A6080', SYNC: '#FFB800', LOST: '#FF3B3B', OPENING: '#FFB800', ERROR: '#FF3B3B', MAINTENANCE: '#8B5CF6', UNKNOWN: '#4A6080' };
@@ -22,11 +23,11 @@ function Tip({ active, payload, label }) {
   );
 }
 
-function KPI({ label, value, sub, color, icon: Icon }) {
+function KPI({ label, value, sub, color, icon: Icon, tip }) {
   return (
     <div className="rounded-lg p-4" style={{ background: '#111827', border: '1px solid #1A2540' }}>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: '#4A6080' }}>{label}</span>
+        <span className="text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#4A6080' }}>{label}{tip && <InfoTip label={label} description={tip} />}</span>
         {Icon && <Icon size={16} style={{ color }} />}
       </div>
       <div className="font-mono text-2xl font-black" style={{ color: color || '#F0F4FF' }}>{value}</div>
@@ -108,7 +109,7 @@ export default function DigitalTwinPage() {
             <div className="flex items-center gap-3">
               <Cpu size={26} style={{ color: '#00B4D8' }} />
               <div>
-                <h1 className="font-heading text-2xl font-bold tracking-tight" style={{ color: '#F0F4FF' }}>Digital Twin</h1>
+                <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center" style={{ color: '#F0F4FF' }}>Digital Twin<InfoTip label="Digital Twin" description="A live, in-memory mirror of every device on the floor — current state, meters, integrity and comms. Use this page when you want the platform's current picture of reality without waiting on a database refresh." /></h1>
                 <span className="text-xs" style={{ color: '#4A6080' }}>Real-time device state projections — Gateway Core Pipeline</span>
               </div>
             </div>
@@ -129,13 +130,13 @@ export default function DigitalTwinPage() {
           {/* KPI Strip */}
           {s && (
             <div className="grid grid-cols-7 gap-3" data-testid="twin-kpi-strip">
-              <KPI label="Fleet" value={s.total_devices} color="#00B4D8" icon={Cpu} sub={`${s.online} online`} />
-              <KPI label="Avg Health" value={`${s.avg_health}%`} color={HEALTH_C(s.avg_health)} icon={Heartbeat} />
-              <KPI label="Coin In" value={fmt(s.total_coin_in)} color="#00D97E" icon={CurrencyDollar} />
-              <KPI label="Credits" value={s.total_credits?.toLocaleString()} color="#FFB800" icon={Lightning} />
-              <KPI label="Games" value={s.total_games?.toLocaleString()} color="#00B4D8" icon={GameController} />
-              <KPI label="Integrity" value={`${s.integrity_rate}%`} color={s.integrity_rate >= 98 ? '#00D97E' : '#FF3B3B'} icon={ShieldCheck} />
-              <KPI label="Comms Lost" value={s.comms_lost} color={s.comms_lost > 0 ? '#FF3B3B' : '#00D97E'} icon={WifiHigh} />
+              <KPI label="Fleet" value={s.total_devices} color="#00B4D8" icon={Cpu} sub={`${s.online} online`} tip="Total number of devices the platform has twins for. The 'online' subtext shows how many are currently reachable." />
+              <KPI label="Avg Health" value={`${s.avg_health}%`} color={HEALTH_C(s.avg_health)} icon={Heartbeat} tip="Average health score across every device. Under 90% is usually worth investigating; under 70% means several machines are unhappy." />
+              <KPI label="Coin In" value={fmt(s.total_coin_in)} color="#00D97E" icon={CurrencyDollar} tip="Total money wagered today across the whole floor, based on the latest meter readings." />
+              <KPI label="Credits" value={s.total_credits?.toLocaleString()} color="#FFB800" icon={Lightning} tip="Total credits sitting on machines right now — money that's been put in but not yet played or cashed out." />
+              <KPI label="Games" value={s.total_games?.toLocaleString()} color="#00B4D8" icon={GameController} tip="Total games played today across the floor. A good pulse on how busy things are." />
+              <KPI label="Integrity" value={`${s.integrity_rate}%`} color={s.integrity_rate >= 98 ? '#00D97E' : '#FF3B3B'} icon={ShieldCheck} tip="Percentage of devices whose software integrity check is passing. Anything below 98% needs compliance attention right away." />
+              <KPI label="Comms Lost" value={s.comms_lost} color={s.comms_lost > 0 ? '#FF3B3B' : '#00D97E'} icon={WifiHigh} tip="Number of devices that have dropped off the network. If this is not zero, check the floor for cable or switch issues." />
             </div>
           )}
         </div>
@@ -145,7 +146,7 @@ export default function DigitalTwinPage() {
           <div className="grid grid-cols-12 gap-3">
             {/* Health Distribution */}
             <div className="col-span-3 rounded-lg p-3" style={{ background: '#111827', border: '1px solid #1A2540' }} data-testid="health-distribution">
-              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium" style={{ color: '#4A6080' }}>Health Distribution</div>
+              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Health Distribution<InfoTip label="Health Distribution" description="Breaks the fleet into healthy, warning and critical buckets based on each device's score. A growing warning slice is an early sign of trouble." /></div>
               <ResponsiveContainer width="100%" height={90}>
                 <PieChart>
                   <Pie data={s?.health_distribution || []} cx="50%" cy="50%" innerRadius={25} outerRadius={38} dataKey="count" stroke="none">
@@ -166,7 +167,7 @@ export default function DigitalTwinPage() {
 
             {/* Comms State */}
             <div className="col-span-3 rounded-lg p-3" style={{ background: '#111827', border: '1px solid #1A2540' }} data-testid="comms-distribution">
-              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium" style={{ color: '#4A6080' }}>Comms State</div>
+              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Comms State<InfoTip label="Comms State" description="How many devices are in each communication state — online, syncing, closed or lost. Anything in 'lost' means the platform hasn't heard from that device recently." /></div>
               <ResponsiveContainer width="100%" height={90}>
                 <BarChart data={s?.comms_distribution || []} barSize={18}>
                   <XAxis dataKey="state" tick={{ fill: '#4A6080', fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -181,7 +182,7 @@ export default function DigitalTwinPage() {
 
             {/* Protocol Mix */}
             <div className="col-span-3 rounded-lg p-3" style={{ background: '#111827', border: '1px solid #1A2540' }} data-testid="protocol-distribution">
-              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium" style={{ color: '#4A6080' }}>Protocol Mix</div>
+              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Protocol Mix<InfoTip label="Protocol Mix" description="Shows how many devices talk each protocol and the average health for that protocol. If one protocol's health is much lower than the others, its connector may be in trouble." /></div>
               <div className="space-y-2 mt-1">
                 {(s?.protocol_distribution || []).map((p, i) => (
                   <div key={p.protocol} className="flex items-center gap-2">
@@ -198,7 +199,7 @@ export default function DigitalTwinPage() {
 
             {/* Pipeline Status */}
             <div className="col-span-3 rounded-lg p-3" style={{ background: '#111827', border: '1px solid #1A2540' }} data-testid="pipeline-status">
-              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium" style={{ color: '#4A6080' }}>Gateway Pipeline</div>
+              <div className="text-[9px] uppercase tracking-widest mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Gateway Pipeline<InfoTip label="Gateway Pipeline" description="The processing stages every event travels through on its way from a device to your dashboards. The counts at the bottom tell you if the pipeline is backed up or healthy." /></div>
               <div className="space-y-1">
                 {(gateway?.pipeline_stages || []).map((stage, i) => (
                   <div key={stage.name} className="flex items-center gap-2 px-2 py-1 rounded text-[9px]" style={{ background: '#0C1322' }}>
@@ -222,27 +223,29 @@ export default function DigitalTwinPage() {
         {/* Device Twin Fleet Table */}
         <div className="flex-1 px-6 pb-6 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: '#4A6080' }}>Device Fleet Twins ({twins.length})</span>
+            <span className="text-[10px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#4A6080' }}>Device Fleet Twins ({twins.length})<InfoTip label="Device Fleet Twins" description="One row per device with its current health, state and key meters. Click any row to open the full twin detail on the right." /></span>
             <div className="flex items-center gap-2">
               <Funnel size={12} style={{ color: '#4A6080' }} />
               <select data-testid="twin-status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-2 py-1 rounded text-[10px] outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
                 <option value="">All States</option>
                 {['ONLINE', 'OFFLINE', 'ERROR', 'MAINTENANCE'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <InfoTip label="State Filter" description="Show only twins in a specific operational state. Use when you want to zero in on offline or errored devices." />
               <select data-testid="twin-sort" value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-2 py-1 rounded text-[10px] outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
                 <option value="health_score">Health (low first)</option>
                 <option value="coin_in_today">Coin In (high first)</option>
                 <option value="device_ref">Device ID</option>
               </select>
+              <InfoTip label="Sort Order" description="Choose how the list is ordered. 'Health low first' is the best setting when you're looking for trouble; 'Coin In high first' helps you find your top earners." />
             </div>
           </div>
 
           <div className="rounded-lg border overflow-hidden flex-1 flex flex-col" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
             <div className="grid grid-cols-12 gap-1 px-4 py-2 text-[9px] uppercase tracking-widest font-medium border-b" style={{ color: '#4A6080', borderColor: '#1A2540' }}>
-              <div className="col-span-1">Health</div><div className="col-span-2">Device</div><div className="col-span-1">Protocol</div>
-              <div className="col-span-1">State</div><div className="col-span-1">Comms</div><div className="col-span-1">Integrity</div>
-              <div className="col-span-1">Coin In</div><div className="col-span-1">Credits</div><div className="col-span-1">Games</div>
-              <div className="col-span-2">Last Event</div>
+              <div className="col-span-1 flex items-center">Health<InfoTip label="Health" description="A single score from 0 to 100 summarising how happy this device is. Red is bad, amber is watch-list, green is fine." /></div><div className="col-span-2 flex items-center">Device<InfoTip label="Device" description="The device's reference number on the floor — usually the stand or asset tag." /></div><div className="col-span-1 flex items-center">Protocol<InfoTip label="Protocol" description="Which protocol the machine uses to talk to the platform." /></div>
+              <div className="col-span-1 flex items-center">State<InfoTip label="State" description="The device's operational state — online, offline, error, maintenance. Reflects what the machine itself is doing." /></div><div className="col-span-1 flex items-center">Comms<InfoTip label="Comms" description="The state of the network link to the device. A healthy device will be ONLINE here; LOST means we can't reach it." /></div><div className="col-span-1 flex items-center">Integrity<InfoTip label="Integrity" description="Software integrity check result (PASS/FAIL). FAIL means the machine's software doesn't match its signed image — a compliance issue." /></div>
+              <div className="col-span-1 flex items-center">Coin In<InfoTip label="Coin In" description="Total money wagered on this machine today. Great for spotting your strong and weak performers." /></div><div className="col-span-1 flex items-center">Credits<InfoTip label="Credits" description="Credits currently sitting on the machine — money put in but not yet played or cashed out." /></div><div className="col-span-1 flex items-center">Games<InfoTip label="Games" description="Number of games played on this machine today." /></div>
+              <div className="col-span-2 flex items-center">Last Event<InfoTip label="Last Event" description="When the platform most recently received an event from this device. If it's more than a few minutes old on a supposedly online machine, something's wrong." /></div>
             </div>
             <div className="flex-1 overflow-y-auto" data-testid="twin-fleet-table">
               {twins.map(t => (

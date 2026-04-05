@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileArrowDown, FileCsv, Table, Receipt, Users, Desktop, ListMagnifyingGlass, Trophy, Lightning } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -42,6 +43,7 @@ export default function ExportPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center gap-3" style={{ color: '#E8ECF1' }}>
           <FileArrowDown size={24} style={{ color: '#007AFF' }} /> Export & Reports
+          <InfoTip label="Export & Reports" description="Download raw CSV reports for any data domain on the platform. Use these for accounting, tax filings, compliance audits, or loading into spreadsheets for deeper analysis." />
         </h1>
       </div>
 
@@ -57,7 +59,9 @@ export default function ExportPage() {
                 <r.icon size={22} style={{ color: '#007AFF' }} />
               </div>
               <div className="flex-1">
-                <h3 className="font-heading text-sm font-semibold mb-1" style={{ color: '#E8ECF1' }}>{r.label}</h3>
+                <h3 className="font-heading text-sm font-semibold mb-1 flex items-center" style={{ color: '#E8ECF1' }}>{r.label}
+                  <InfoTip label={r.label} description={`Download a CSV of ${r.desc.toLowerCase()}. Use the filter dropdown to narrow the export, then click Download CSV.`} />
+                </h3>
                 <p className="text-xs mb-3" style={{ color: '#6B7A90' }}>{r.desc}</p>
 
                 {r.filters.length > 0 && (

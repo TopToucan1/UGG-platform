@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { MagnifyingGlass, Check, X, Warning, ShieldCheck, CaretRight, Funnel } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
 
 const STATUS_C = { GREEN: '#00D97E', YELLOW: '#FFB800', RED: '#FF3B3B' };
 
@@ -27,20 +28,23 @@ export default function AnalyzerPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold flex items-center gap-3" style={{ color: '#F0F4FF' }}>
           <MagnifyingGlass size={24} style={{ color: '#00B4D8' }} /> Advanced Transcript Analyzer
+          <InfoTip label="Advanced Transcript Analyzer" description="Runs the G2S rules engine over a captured session transcript to find protocol violations, missing responses, bad sequences, and other compliance issues. Gives a traffic-light status (GREEN/YELLOW/RED) per comms session." />
         </h1>
         <div className="flex items-center gap-3">
           <input value={sessionId} onChange={e => setSessionId(e.target.value)} placeholder="Session ID" className="px-3 py-2 rounded text-xs outline-none font-mono w-48" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+          <InfoTip label="Session ID" description="The emulator/live session you want to analyze. Each SmartEGM or G2S run creates a session ID that captures all its messages." />
           <button data-testid="run-analyzer-btn" onClick={runAnalyzer} disabled={running} className="px-5 py-2 rounded text-sm font-semibold" style={{ background: '#00B4D8', color: '#070B14' }}>
             {running ? 'Analyzing...' : 'Run Analysis'}
           </button>
+          <InfoTip label="Run Analysis" description="Evaluate all rules against the transcript for that session ID. Returns violations grouped by comms session with ERROR/WARNING severity." />
         </div>
       </div>
 
       {currentResult && (
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            <span className="text-lg font-mono font-bold px-4 py-1.5 rounded" style={{ background: `${STATUS_C[currentResult.overall_status]}20`, color: STATUS_C[currentResult.overall_status] }}>{currentResult.overall_status}</span>
-            <span className="text-xs font-mono" style={{ color: '#4A6080' }}>{currentResult.total_messages} messages | {currentResult.comms_session_count} sessions | {currentResult.rules_evaluated} rules | {currentResult.total_violations} violations ({currentResult.total_errors} errors, {currentResult.total_warnings} warnings)</span>
+            <span className="text-lg font-mono font-bold px-4 py-1.5 rounded flex items-center" style={{ background: `${STATUS_C[currentResult.overall_status]}20`, color: STATUS_C[currentResult.overall_status] }}>{currentResult.overall_status}<InfoTip description="Overall result for this transcript. GREEN = all rules passed. YELLOW = warnings only (non-blocking issues). RED = one or more ERROR-severity violations found." /></span>
+            <span className="text-xs font-mono flex items-center" style={{ color: '#4A6080' }}>{currentResult.total_messages} messages | {currentResult.comms_session_count} sessions | {currentResult.rules_evaluated} rules | {currentResult.total_violations} violations ({currentResult.total_errors} errors, {currentResult.total_warnings} warnings)<InfoTip description="Summary counters: how many G2S messages were inspected, how many comms sessions they were split into, how many rules ran, and how many violations (errors vs warnings) were found." /></span>
           </div>
 
           <div className="space-y-2" data-testid="session-results">
@@ -73,7 +77,7 @@ export default function AnalyzerPage() {
       )}
 
       {results.length > 0 && !currentResult && (
-        <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Past Analyses</div>
+        <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Past Analyses<InfoTip description="Previous analyzer runs on this estate. Click any row to see its full results again." /></div>
         {results.map((r, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-2 rounded mb-1 text-xs cursor-pointer hover:bg-white/[0.02]" style={{ background: '#0C1322', border: '1px solid #1A2540' }} onClick={() => setCurrentResult(r)}>
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_C[r.overall_status] }} />

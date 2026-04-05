@@ -29,6 +29,38 @@ class ProtocolType(str, Enum):
     PROPRIETARY = "PROPRIETARY"
 
 
+# ═══════════════════════════════════════════
+# CANONICAL EVENT TYPES
+# Adapters emit these strings as CanonicalEvent.event_type.
+# The gateway_core pipeline routes them to downstream services.
+# ═══════════════════════════════════════════
+class EventType:
+    # Meter / state
+    METER_SNAPSHOT = "meter_snapshot"
+    DEVICE_STATE = "device_state"
+
+    # Bill acceptor / voucher (session boundary signals)
+    BILL_STACKED = "device.billAcceptor.stacked"       # physical bill accepted into stacker
+    VOUCHER_REDEEMED = "device.voucher.redeemed"       # TITO ticket inserted
+    VOUCHER_ISSUED = "device.voucher.issued"           # TITO ticket printed (cashout)
+
+    # Cash / transfer events
+    CASHOUT_CASH = "device.cashout.cash"
+    TRANSFER_OUT = "device.transfer.out"
+    TRANSFER_IN = "device.transfer.in"
+
+    # Player PIN (UGG-specific — no cards)
+    PIN_LOGIN = "device.player.pinLogin"    # payload: {pin: "1234", player_ref?: "..."}
+    PIN_LOGOUT = "device.player.pinLogout"  # payload: {reason?: "..."}
+
+    # Faults / alarms
+    TILT = "device.tilt"
+    DOOR_OPENED = "device.door.opened"
+    DOOR_CLOSED = "device.door.closed"
+    HANDPAY = "device.jackpot.handpay"
+    INTEGRITY_CHECK = "device.integrity.check"
+
+
 class CanonicalEvent:
     def __init__(self, device_id: str, event_type: str, protocol: str, payload: dict,
                  tenant_id: str = "", site_id: str = "", **kwargs):

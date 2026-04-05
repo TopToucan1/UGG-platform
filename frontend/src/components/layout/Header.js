@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MagnifyingGlass, Bell, SignOut, User } from '@phosphor-icons/react';
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import InfoTip from '@/components/InfoTip';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -21,21 +22,24 @@ export default function Header() {
     >
       <div className="flex items-center gap-4">
         {/* Site selector */}
-        <select
-          data-testid="site-selector"
-          value={selectedSite}
-          onChange={e => setSelectedSite(e.target.value)}
-          className="px-3 py-1.5 rounded text-sm outline-none"
-          style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}
-        >
-          <option value="all">All Sites</option>
-          {sites.map(s => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center">
+          <select
+            data-testid="site-selector"
+            value={selectedSite}
+            onChange={e => setSelectedSite(e.target.value)}
+            className="px-3 py-1.5 rounded text-sm outline-none"
+            style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}
+          >
+            <option value="all">All Sites</option>
+            {sites.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <InfoTip label="Site Selector" description="Filter everything in the app to a specific venue (bar, tavern, casino floor). Choose 'All Sites' to see your entire route at once. Applies to most pages that display device or session data." />
+        </div>
 
         {/* Search */}
-        <div className="relative">
+        <div className="relative flex items-center">
           <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#6B7A90' }} />
           <input
             data-testid="global-search"
@@ -44,6 +48,7 @@ export default function Header() {
             className="pl-9 pr-4 py-1.5 rounded text-sm outline-none w-64"
             style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}
           />
+          <InfoTip label="Global Search" description="Quickly find a device by its ID or serial, or an event by keyword, from anywhere in the app." />
         </div>
       </div>
 
@@ -53,9 +58,10 @@ export default function Header() {
           <Bell size={20} />
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: '#FF3B30' }} />
         </button>
+        <InfoTip label="Notifications" description="Shows unread system notifications. A red dot means there is new activity — click to review." />
 
         {/* User menu */}
-        <div className="relative">
+        <div className="relative flex items-center">
           <button
             data-testid="user-menu-btn"
             onClick={() => setShowUserMenu(!showUserMenu)}
@@ -68,6 +74,7 @@ export default function Header() {
               {user?.role}
             </span>
           </button>
+          <InfoTip label="Your Account" description="Click to open your account menu and sign out. The badge shows your role (admin, operator, engineer, etc.) which controls what features you can access." />
 
           {showUserMenu && (
             <div

@@ -7,6 +7,7 @@ import {
   Upload, Download, Table
 } from '@phosphor-icons/react';
 import * as XLSX from 'xlsx';
+import InfoTip from '@/components/InfoTip';
 
 const STATE_C = { ONLINE: '#00D97E', SYNC: '#FFB800', OPENING: '#FFB800', LOST: '#FF3B3B', CLOSED: '#4A6080', ENABLED: '#00D97E', FAULT: '#FF3B3B', IDLE: '#4A6080', HANDPAY_PENDING: '#FFB800' };
 const VERB_ICONS = { INSERT_BILL: CurrencyDollar, INSERT_VOUCHER: FileText, INSERT_COIN: CurrencyDollar, PUSH_PLAY_BUTTON: GameController, PUSH_MAX_BET: GameController, CASH_OUT: CurrencyDollar, REQUEST_HANDPAY: Warning, OPEN_DOOR: Door, CLOSE_DOOR: Door, FORCE_TILT: Lightning, CLEAR_FAULT: Check, SET_CREDITS: CurrencyDollar };
@@ -253,13 +254,13 @@ export default function EmulatorLabPage() {
 
   const allScripts = [...(scripts.system_scripts || []), ...(scripts.custom_scripts || [])];
   const tabs = [
-    { id: 'scripts', label: 'Script Runner' },
-    { id: 'egm', label: 'SmartEGM' },
-    { id: 'live', label: 'Live G2S' },
-    { id: 'templates', label: 'Templates' },
-    { id: 'tar', label: 'TAR Report' },
-    { id: 'watchables', label: 'Watchables' },
-    { id: 'traces', label: 'Transcripts' },
+    { id: 'scripts', label: 'Script Runner', tip: 'Pre-canned test sequences (e.g. cash-in, play, cash-out) you can run against the virtual EGM to check the platform handles them correctly.' },
+    { id: 'egm', label: 'SmartEGM', tip: 'Drive a virtual slot machine directly using high-level player verbs (Insert Bill, Push Play, Cash Out, etc.) without having to hand-craft G2S messages.' },
+    { id: 'live', label: 'Live G2S', tip: 'Point the lab at a real EGM SOAP endpoint (or leave blank for virtual) and send live G2S commands. G2S = Game-to-System, the XML/HTTPS protocol modern EGMs use.' },
+    { id: 'templates', label: 'Templates', tip: 'Parse a device template XML (the vendor-supplied description of an EGM\'s capabilities, meters, denominations and game outcomes) so the emulator can mimic that exact model.' },
+    { id: 'tar', label: 'TAR Report', tip: 'Transcript Analysis Report — a formal 7-section compliance report over a session, including Balanced Meters, ACK errors and coverage.' },
+    { id: 'watchables', label: 'Watchables', tip: 'XPath rules that watch the live G2S traffic and fire when a pattern matches. Useful for catching specific sequences during a test run.' },
+    { id: 'traces', label: 'Transcripts', tip: 'Raw G2S/SOAP message log from the session. Every TX/RX message with timestamps, classes and payloads — the primary debugging view.' },
   ];
 
   return (
@@ -269,20 +270,24 @@ export default function EmulatorLabPage() {
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
             <Flask size={16} style={{ color: '#00B4D8' }} /> Emulator Lab
+            <InfoTip label="Emulator Lab" description="A safe sandbox for testing the platform against simulated EGMs before touching real hardware. Run test scripts, drive a virtual slot machine, connect to a real G2S endpoint, parse device templates, and inspect the resulting protocol traffic." />
           </h2>
         </div>
         {/* Tab selector */}
         <div className="flex flex-wrap gap-1 px-2 py-2 border-b" style={{ borderColor: '#1A2540' }}>
           {tabs.map(t => (
-            <button key={t.id} data-testid={`lab-tab-${t.id}`} onClick={() => setActiveTab(t.id)}
-              className="px-2 py-1 rounded text-[9px] font-medium uppercase tracking-wider transition-colors"
-              style={{ background: activeTab === t.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: activeTab === t.id ? '#00B4D8' : '#4A6080' }}>
-              {t.label}
-            </button>
+            <span key={t.id} className="flex items-center">
+              <button data-testid={`lab-tab-${t.id}`} onClick={() => setActiveTab(t.id)}
+                className="px-2 py-1 rounded text-[9px] font-medium uppercase tracking-wider transition-colors"
+                style={{ background: activeTab === t.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: activeTab === t.id ? '#00B4D8' : '#4A6080' }}>
+                {t.label}
+              </button>
+              <InfoTip label={t.label} description={t.tip} />
+            </span>
           ))}
         </div>
         {/* Script Library */}
-        <div className="px-3 py-2 text-[9px] uppercase tracking-widest font-medium" style={{ color: '#4A6080' }}>Script Library</div>
+        <div className="px-3 py-2 text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#4A6080' }}>Script Library<InfoTip description="Available test scripts. System scripts are built-in standard tests; custom scripts are ones your team has created. Click one to select, then use Run Script." /></div>
         <div className="flex-1 overflow-y-auto px-2">
           {allScripts.map(s => (
             <button key={s.id} data-testid={`script-${s.id}`} onClick={() => setSelectedScript(s)}
@@ -298,11 +303,12 @@ export default function EmulatorLabPage() {
           <div className="px-3 py-2 border-t space-y-1" style={{ borderColor: '#1A2540' }}>
             <div className="text-[9px] uppercase tracking-widest font-medium flex items-center gap-1" style={{ color: '#4A6080' }}>
               EGM State <span className="w-2 h-2 rounded-full" style={{ background: STATE_C[egmState.state] || '#4A6080' }} />
+              <InfoTip description="Live state of the virtual EGM after the last action. Colored dot shows operational state (green = online/enabled, red = fault, yellow = transitioning)." />
             </div>
-            <div className="text-[10px] font-mono" style={{ color: '#F0F4FF' }}>Credits: {egmState.credits?.toLocaleString()}</div>
-            <div className="text-[10px] font-mono" style={{ color: '#00D97E' }}>In: {egmState.coin_in?.toLocaleString()}</div>
-            <div className="text-[10px] font-mono" style={{ color: '#FF3B3B' }}>Out: {egmState.coin_out?.toLocaleString()}</div>
-            <div className="text-[10px] font-mono" style={{ color: '#4A6080' }}>Games: {egmState.games_played}</div>
+            <div className="text-[10px] font-mono flex items-center" style={{ color: '#F0F4FF' }}>Credits: {egmState.credits?.toLocaleString()}<InfoTip description="Credits currently on the machine (money the player could still bet or cash out)." /></div>
+            <div className="text-[10px] font-mono flex items-center" style={{ color: '#00D97E' }}>In: {egmState.coin_in?.toLocaleString()}<InfoTip description="Coin-in meter — total amount wagered on this EGM in this session (a meter is a counter that tracks money flow)." /></div>
+            <div className="text-[10px] font-mono flex items-center" style={{ color: '#FF3B3B' }}>Out: {egmState.coin_out?.toLocaleString()}<InfoTip description="Coin-out meter — total amount paid out in wins/cashouts in this session." /></div>
+            <div className="text-[10px] font-mono flex items-center" style={{ color: '#4A6080' }}>Games: {egmState.games_played}<InfoTip description="Number of games (spins) played in this session." /></div>
           </div>
         )}
       </div>
@@ -319,11 +325,14 @@ export default function EmulatorLabPage() {
                     <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>{selectedScript.name}</h3>
                     <span className="text-xs" style={{ color: '#4A6080' }}>{selectedScript.description}</span>
                   </div>
-                  <button data-testid="run-script-btn" onClick={runScript} disabled={running}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold disabled:opacity-50"
-                    style={{ background: running ? '#1A2540' : '#00D97E', color: '#070B14' }}>
-                    {running ? <Clock size={16} className="animate-spin" /> : <Play size={16} weight="fill" />} {running ? 'Running...' : 'Run Script'}
-                  </button>
+                  <div className="flex items-center">
+                    <button data-testid="run-script-btn" onClick={runScript} disabled={running}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold disabled:opacity-50"
+                      style={{ background: running ? '#1A2540' : '#00D97E', color: '#070B14' }}>
+                      {running ? <Clock size={16} className="animate-spin" /> : <Play size={16} weight="fill" />} {running ? 'Running...' : 'Run Script'}
+                    </button>
+                    <InfoTip label="Run Script" description="Execute the selected script step-by-step against the virtual EGM. Each step will pass, fail, or be skipped. Meter checks (Balanced Meters) run automatically at the end." />
+                  </div>
                 </div>
                 {/* Step List */}
                 <div className="space-y-1" data-testid="step-list">
@@ -349,11 +358,14 @@ export default function EmulatorLabPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Sparkle size={16} style={{ color: '#FFB800' }} />
-                        <span className="font-heading text-sm font-semibold" style={{ color: '#F0F4FF' }}>Balanced Meters Analysis (Appendix B)</span>
+                        <span className="font-heading text-sm font-semibold flex items-center" style={{ color: '#F0F4FF' }}>Balanced Meters Analysis (Appendix B)<InfoTip description="GSA Appendix B Balanced Meters tests — a set of standard formulas (like coin-in = games_played * average_bet) that must reconcile. If a formula doesn't balance, meters are out of whack and revenue reports will be wrong." /></span>
                       </div>
-                      <button data-testid="export-bma-excel" onClick={exportBmaExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
-                        <Download size={12} /> Export Excel
-                      </button>
+                      <div className="flex items-center">
+                        <button data-testid="export-bma-excel" onClick={exportBmaExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
+                          <Download size={12} /> Export Excel
+                        </button>
+                        <InfoTip label="Export Excel" description="Download the balanced meters results as an .xlsx file for auditors or offline review." />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {scriptResult.balanced_meters.map(bm => (
@@ -381,7 +393,7 @@ export default function EmulatorLabPage() {
         {/* ═══ SMART EGM ═══ */}
         {activeTab === 'egm' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="smart-egm-panel">
-            <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>SmartEGM — 12 Player Verbs</h3>
+            <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>SmartEGM — 12 Player Verbs<InfoTip label="SmartEGM Player Verbs" description="High-level actions a player can perform on a slot machine. Click any button to simulate it on the virtual EGM — the underlying G2S messages are generated automatically. Only verbs valid for the current state light up." /></h3>
             <div className="grid grid-cols-4 gap-2" data-testid="verb-buttons">
               {verbs.map(v => {
                 const Icon = VERB_ICONS[v.id] || GameController;
@@ -403,16 +415,20 @@ export default function EmulatorLabPage() {
         {activeTab === 'tar' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="tar-panel">
             <div className="flex items-center justify-between">
-              <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>Transcript Analysis Report</h3>
-              <button data-testid="generate-tar-btn" onClick={generateTar} className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
-                <FileText size={14} /> Generate TAR
-              </button>
+              <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>Transcript Analysis Report<InfoTip label="TAR" description="Transcript Analysis Report — a formal 7-section summary of everything that happened in a session. Used for compliance, regression checks and auditor hand-offs." /></h3>
+              <div className="flex items-center">
+                <button data-testid="generate-tar-btn" onClick={generateTar} className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
+                  <FileText size={14} /> Generate TAR
+                </button>
+                <InfoTip label="Generate TAR" description="Build a fresh TAR from the current session's transcripts. Takes a few seconds for large sessions." />
+              </div>
             </div>
             {tarReport && (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono px-3 py-1 rounded font-bold" style={{ background: tarReport.overall_status === 'GREEN' ? 'rgba(0,217,126,0.15)' : tarReport.overall_status === 'YELLOW' ? 'rgba(255,184,0,0.15)' : 'rgba(255,59,59,0.15)', color: tarReport.overall_status === 'GREEN' ? '#00D97E' : tarReport.overall_status === 'YELLOW' ? '#FFB800' : '#FF3B3B' }}>
+                  <span className="text-xs font-mono px-3 py-1 rounded font-bold flex items-center" style={{ background: tarReport.overall_status === 'GREEN' ? 'rgba(0,217,126,0.15)' : tarReport.overall_status === 'YELLOW' ? 'rgba(255,184,0,0.15)' : 'rgba(255,59,59,0.15)', color: tarReport.overall_status === 'GREEN' ? '#00D97E' : tarReport.overall_status === 'YELLOW' ? '#FFB800' : '#FF3B3B' }}>
                     {tarReport.overall_status}
+                    <InfoTip description="Overall traffic-light verdict across all 7 TAR sections. GREEN = clean run. YELLOW = warnings only. RED = blocking errors that would fail a compliance audit." />
                   </span>
                   <span className="text-xs font-mono" style={{ color: '#4A6080' }}>{tarReport.total_messages} messages | Session: {tarReport.session_id}</span>
                 </div>
@@ -461,7 +477,7 @@ export default function EmulatorLabPage() {
         {/* ═══ WATCHABLES ═══ */}
         {activeTab === 'watchables' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="watchables-panel">
-            <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>Watchables — XPath Engine</h3>
+            <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>Watchables — XPath Engine<InfoTip label="Watchables" description="Standing XPath expressions that evaluate live G2S traffic in the background. When a message matches, the watchable fires — handy for catching 'something specific happened' during a test without tailing every message by hand." /></h3>
             <div className="space-y-2">
               {watchables.map(w => (
                 <div key={w.id} className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ background: '#0C1322', border: `1px solid ${w.is_active ? '#00B4D830' : '#1A2540'}` }}>
@@ -485,38 +501,39 @@ export default function EmulatorLabPage() {
         {/* ═══ LIVE G2S CONNECTION ═══ */}
         {activeTab === 'live' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="live-g2s-panel">
-            <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>Live G2S SOAP Connection</h3>
+            <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>Live G2S SOAP Connection<InfoTip label="Live G2S" description="Open a real SOAP connection to an EGM (or a virtual one if you leave the URL blank) and send individual G2S commands. Use this to debug a single device without running a full script." /></h3>
             {/* Connect Form */}
             <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>EGM SOAP Endpoint</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>EGM SOAP Endpoint<InfoTip description="The HTTPS/SOAP URL published by the target EGM (often something like https://egm-ip:8443/g2s). Leave blank to use the built-in virtual EGM." /></label>
                   <input data-testid="live-egm-url" value={liveUrl} onChange={e => setLiveUrl(e.target.value)} placeholder="https://egm-ip:8443/g2s (leave blank for virtual)"
                     className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Device ID</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Device ID<InfoTip description="Identifier the host will use to address this EGM (matches the device_id in the platform's records)." /></label>
                   <input value={liveDeviceId} onChange={e => setLiveDeviceId(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
                 </div>
                 <div className="flex items-end">
-                  <button data-testid="connect-live-btn" onClick={connectLive} className="w-full flex items-center justify-center gap-2 py-2 rounded text-xs font-medium" style={{ background: '#00D97E', color: '#070B14' }}>
+                  <button data-testid="connect-live-btn" onClick={connectLive} className="flex-1 flex items-center justify-center gap-2 py-2 rounded text-xs font-medium" style={{ background: '#00D97E', color: '#070B14' }}>
                     <Plugs size={14} /> Connect
                   </button>
+                  <InfoTip label="Connect" description="Open the SOAP session with the EGM (or virtual EGM) using the URL and device ID above. Does not send any commands yet." />
                 </div>
               </div>
             </div>
             {/* Command Builder */}
             <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-              <div className="text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Send G2S Command</div>
+              <div className="text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#4A6080' }}>Send G2S Command<InfoTip description="Send a single G2S command (one XML message) to the connected EGM. Pick a class (group of commands) and a command name." /></div>
               <div className="grid grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Class</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Class<InfoTip description="G2S device class — the functional area of the EGM the command targets (cabinet, meters, gamePlay, voucher, etc.)." /></label>
                   <select value={liveCmdClass} onChange={e => setLiveCmdClass(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
                     {['cabinet', 'communications', 'gamePlay', 'meters', 'noteAcceptor', 'voucher', 'handpay', 'eventHandler', 'bonus', 'player', 'progressive', 'mediaDisplay', 'download', 'GAT'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Command</label>
+                  <label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Command<InfoTip description="Specific request within the class (e.g. getDeviceStatus asks the EGM for its current state, keepAlive pings it to confirm the link is up)." /></label>
                   <select value={liveCmdName} onChange={e => setLiveCmdName(e.target.value)} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>
                     {['getDeviceStatus', 'setDeviceState', 'commsOnLine', 'commsOnLineAck', 'setCommsState', 'keepAlive', 'getMeterInfo', 'setEventSub', 'getEventSub', 'commitVoucher', 'doVerification'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -525,12 +542,15 @@ export default function EmulatorLabPage() {
                   <button data-testid="send-live-cmd-btn" onClick={sendLiveCommand} className="flex-1 flex items-center justify-center gap-2 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
                     <ArrowRight size={14} /> Send
                   </button>
+                  <InfoTip label="Send" description="Dispatch the selected command to the EGM. The response (or error) shows up below." />
                   <button data-testid="connect-production-btn" onClick={connectProduction} className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium" style={{ background: '#00D97E', color: '#070B14' }}>
                     <Plugs size={14} /> Full Startup
                   </button>
+                  <InfoTip label="Full Startup" description="Run the complete G2S production-style startup sequence against the EGM (commsOnLine, keepAlive, getDeviceStatus, getMeterInfo, event subscriptions, etc.) in the correct order." />
                   <button data-testid="export-session-btn" onClick={exportSession} className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium" style={{ background: 'rgba(0,180,216,0.1)', color: '#00B4D8', border: '1px solid rgba(0,180,216,0.2)' }}>
                     <Download size={14} /> ZIP
                   </button>
+                  <InfoTip label="Export Session ZIP" description="Download the entire session (transcripts, TAR report, metadata) as a ZIP file — useful for sharing repro cases or storing test evidence." />
                 </div>
               </div>
             </div>
@@ -575,15 +595,21 @@ export default function EmulatorLabPage() {
             {/* Session Recording */}
             <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: '#4A6080' }}>Session Recording</span>
+                <span className="text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#4A6080' }}>Session Recording<InfoTip description="Capture all commands and responses in this session so you can replay them later against a different session or virtual EGM. Great for reproducing bugs." /></span>
                 {!activeRecording ? (
-                  <button data-testid="start-recording-btn" onClick={startRecording} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B', color: '#F0F4FF' }}>
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Start Recording
-                  </button>
+                  <>
+                    <button data-testid="start-recording-btn" onClick={startRecording} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B', color: '#F0F4FF' }}>
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Start Recording
+                    </button>
+                    <InfoTip label="Start Recording" description="Begin capturing commands from this session. Recording continues until you stop it." />
+                  </>
                 ) : (
-                  <button data-testid="stop-recording-btn" onClick={stopRecording} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B20', color: '#FF3B3B', border: '1px solid #FF3B3B40' }}>
-                    <span className="w-2 h-2 rounded-sm" style={{ background: '#FF3B3B' }} /> Stop Recording
-                  </button>
+                  <>
+                    <button data-testid="stop-recording-btn" onClick={stopRecording} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FF3B3B20', color: '#FF3B3B', border: '1px solid #FF3B3B40' }}>
+                      <span className="w-2 h-2 rounded-sm" style={{ background: '#FF3B3B' }} /> Stop Recording
+                    </button>
+                    <InfoTip label="Stop Recording" description="Finalize the recording and make it available for replay." />
+                  </>
                 )}
               </div>
               {activeRecording && (
@@ -595,9 +621,9 @@ export default function EmulatorLabPage() {
               {/* Replay Controls */}
               {recordings.filter(r => r.status === 'COMPLETED').length > 0 && (
                 <div>
-                  <div className="text-[9px] uppercase tracking-wider mb-1 font-medium" style={{ color: '#4A6080' }}>Replay</div>
+                  <div className="text-[9px] uppercase tracking-wider mb-1 font-medium flex items-center" style={{ color: '#4A6080' }}>Replay<InfoTip description="Replay a previous recording against the current session. Adjust speed to fast-forward or slow-motion the playback." /></div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px]" style={{ color: '#4A6080' }}>Speed:</span>
+                    <span className="text-[10px] flex items-center" style={{ color: '#4A6080' }}>Speed:<InfoTip description="Playback multiplier. 1x = real-time. Instant = fire all commands as fast as possible (skips inter-message delays)." /></span>
                     {[0.5, 1, 2, 5, 0].map(s => (
                       <button key={s} onClick={() => setReplaySpeed(s)} className="px-2 py-0.5 rounded text-[9px] font-mono" style={{ background: replaySpeed === s ? '#00B4D820' : '#111827', color: replaySpeed === s ? '#00B4D8' : '#4A6080', border: '1px solid #1A2540' }}>
                         {s === 0 ? 'Instant' : `${s}x`}
@@ -612,6 +638,7 @@ export default function EmulatorLabPage() {
                       <button data-testid={`replay-${rec.id}`} onClick={() => replayRecording(rec.id)} className="ml-auto px-2 py-0.5 rounded text-[9px] font-medium" style={{ background: '#00B4D820', color: '#00B4D8' }}>
                         <Play size={10} className="inline mr-1" /> Replay
                       </button>
+                      <InfoTip label="Replay" description="Replay this recorded session's commands into the current session at the chosen speed." />
                     </div>
                   ))}
                 </div>
@@ -625,7 +652,7 @@ export default function EmulatorLabPage() {
 
             {/* Live Connections */}
             {liveConns.length > 0 && (
-              <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Active Connections</div>
+              <div><div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Active Connections<InfoTip description="Open SOAP sessions with EGMs right now, with a running message count per connection." /></div>
               {liveConns.map(c => (
                 <div key={c.session_id} className="flex items-center gap-3 px-3 py-2 rounded mb-1 text-xs" style={{ background: '#0C1322', border: '1px solid #1A2540' }}>
                   <span className="w-2 h-2 rounded-full" style={{ background: '#00D97E' }} />
@@ -641,15 +668,18 @@ export default function EmulatorLabPage() {
         {/* ═══ DEVICE TEMPLATES ═══ */}
         {activeTab === 'templates' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="templates-panel">
-            <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>Device Template XML Parser</h3>
+            <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>Device Template XML Parser<InfoTip label="Device Template" description="A vendor-supplied XML file that describes an EGM model: its G2S schema version, serial, meters, denominations, win levels, and supported device classes. Parsing it lets the emulator mimic that exact model." /></h3>
             <div className="rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#4A6080' }}>Paste Device Template XML</div>
+              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#4A6080' }}>Paste Device Template XML<InfoTip description="Paste the contents of a <deviceTemplate> XML file. The parser will pull out denominations, supported G2S classes, win levels and metadata." /></div>
               <textarea data-testid="template-xml-input" value={templateXml} onChange={e => setTemplateXml(e.target.value)} rows={8}
                 className="w-full px-3 py-2 rounded text-xs font-mono outline-none resize-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#00D97E' }}
                 placeholder={'<deviceTemplate version="1.0" manufacturer="ACE" model="Velocity-3">\n  <metadata>...</metadata>\n  <denominations>...</denominations>\n  <devices>...</devices>\n  <gameOutcomes>...</gameOutcomes>\n</deviceTemplate>'} />
-              <button data-testid="parse-template-btn" onClick={parseTemplateXml} className="mt-2 flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
-                <Code size={14} /> Parse Template
-              </button>
+              <div className="flex items-center">
+                <button data-testid="parse-template-btn" onClick={parseTemplateXml} className="mt-2 flex items-center gap-2 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
+                  <Code size={14} /> Parse Template
+                </button>
+                <InfoTip label="Parse Template" description="Parse the pasted XML and display the extracted device info. The template is also saved to the parsed templates list." />
+              </div>
             </div>
             {parsedResult && !parsedResult.error && (
               <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#00D97E30' }}>
@@ -677,11 +707,14 @@ export default function EmulatorLabPage() {
           <div className="flex-1 flex flex-col overflow-hidden" data-testid="transcript-panel">
             <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: '#1A2540', background: '#0C1322' }}>
               {['g2s', 'soap', 'protocol'].map(t => (
-                <button key={t} data-testid={`tx-tab-${t}`} onClick={() => { setTraceTab(t); setTimeout(() => loadTranscriptWindow(0), 100); }}
-                  className="px-2 py-1 rounded text-[9px] font-medium uppercase tracking-wider"
-                  style={{ background: traceTab === t ? 'rgba(0,180,216,0.15)' : 'transparent', color: traceTab === t ? '#00B4D8' : '#4A6080' }}>
-                  {t === 'g2s' ? 'G2S Messages' : t === 'soap' ? 'SOAP' : 'Protocol'}
-                </button>
+                <span key={t} className="flex items-center">
+                  <button data-testid={`tx-tab-${t}`} onClick={() => { setTraceTab(t); setTimeout(() => loadTranscriptWindow(0), 100); }}
+                    className="px-2 py-1 rounded text-[9px] font-medium uppercase tracking-wider"
+                    style={{ background: traceTab === t ? 'rgba(0,180,216,0.15)' : 'transparent', color: traceTab === t ? '#00B4D8' : '#4A6080' }}>
+                    {t === 'g2s' ? 'G2S Messages' : t === 'soap' ? 'SOAP' : 'Protocol'}
+                  </button>
+                  <InfoTip description={t === 'g2s' ? 'The parsed G2S-level commands and responses (gamePlay, meters, voucher, etc.).' : t === 'soap' ? 'The raw SOAP envelope layer wrapping the G2S payloads — useful for debugging transport issues.' : 'Low-level protocol traces (connection events, headers, timing) that sit underneath G2S.'} />
+                </span>
               ))}
               <div className="flex-1" />
               <input value={txSearch} onChange={e => setTxSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadTranscriptWindow(0)} placeholder="Search..."
@@ -739,7 +772,7 @@ export default function EmulatorLabPage() {
 
       {/* Right — Results + Past Runs */}
       <div className="w-72 border-l flex-shrink-0 overflow-y-auto" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-        <div className="px-4 py-2 text-[9px] uppercase tracking-widest font-medium" style={{ color: '#4A6080' }}>Past Runs</div>
+        <div className="px-4 py-2 text-[9px] uppercase tracking-widest font-medium flex items-center" style={{ color: '#4A6080' }}>Past Runs<InfoTip description="Recent script execution history — which scripts ran, how many steps completed, and whether they passed or failed." /></div>
         {scriptRuns.map(r => (
           <div key={r.id} className="px-4 py-2 border-b text-xs" style={{ borderColor: '#1A254020' }}>
             <div className="flex items-center justify-between">
@@ -750,8 +783,9 @@ export default function EmulatorLabPage() {
           </div>
         ))}
         {/* Connected Adapters */}
-        <div className="px-4 py-2 text-[9px] uppercase tracking-widest font-medium border-t" style={{ color: '#4A6080', borderColor: '#1A2540' }}>
+        <div className="px-4 py-2 text-[9px] uppercase tracking-widest font-medium border-t flex items-center" style={{ color: '#4A6080', borderColor: '#1A2540' }}>
           <Plugs size={10} className="inline mr-1" /> Adapters ({adapters.length})
+          <InfoTip description="Protocol adapters currently connected to this lab — each represents a virtual or real device speaking a specific protocol (SAS, G2S, S2S) back to the platform." />
         </div>
         {adapters.map(a => (
           <div key={a.adapter_id} className="px-4 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1A254020' }}>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { UserCircle, Users, Clock, GameController, Trophy, CurrencyDollar, Funnel, X, Star } from '@phosphor-icons/react';
 import { BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import InfoTip from '@/components/InfoTip';
 
 const TIER_COLORS = { Diamond: '#B9F2FF', Platinum: '#C0C0C0', Gold: '#FFD700', Silver: '#A8A8A8', Bronze: '#CD7F32' };
 const COLORS = ['#00D4AA', '#007AFF', '#F5A623', '#FF3B30', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#FF6B35', '#10B981'];
@@ -16,10 +17,10 @@ function Tip({ active, payload, label }) {
   );
 }
 
-function StatCard({ label, value, sub, color }) {
+function StatCard({ label, value, sub, color, info }) {
   return (
     <div className="rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-      <div className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: '#6B7A90' }}>{label}</div>
+      <div className="text-[10px] font-medium uppercase tracking-wider mb-1 flex items-center" style={{ color: '#6B7A90' }}>{label}{info && <InfoTip label={label} description={info} />}</div>
       <div className="font-mono text-lg font-bold" style={{ color: color || '#E8ECF1' }}>{value}</div>
       {sub && <div className="text-[10px] font-mono mt-0.5" style={{ color: '#6B7A90' }}>{sub}</div>}
     </div>
@@ -85,19 +86,20 @@ export default function PlayerSessionsPage() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center gap-3" style={{ color: '#E8ECF1' }}>
               <Users size={24} style={{ color: '#007AFF' }} /> Player Sessions
+              <InfoTip label="Player Sessions" description="Every card-in / card-out play session on your fleet, with wagered, won, and net results. Use to find top players, monitor activity, and spot big winners or losers." />
             </h1>
             <span className="text-xs font-mono" style={{ color: '#6B7A90' }}>{total} sessions | {sm?.unique_players || 0} players | {sm?.active_sessions || 0} active now</span>
           </div>
 
           {/* Summary Strip */}
           <div className="grid grid-cols-7 gap-3" data-testid="player-summary">
-            <StatCard label="Active" value={sm?.active_sessions ?? '--'} color="#00D4AA" sub="right now" />
-            <StatCard label="Total Sessions" value={sm?.total_sessions ?? '--'} color="#E8ECF1" />
-            <StatCard label="Unique Players" value={sm?.unique_players ?? '--'} color="#007AFF" />
-            <StatCard label="Total Wagered" value={fmt(sm?.total_wagered)} color="#F5A623" />
-            <StatCard label="Total Won" value={fmt(sm?.total_won)} color="#00D4AA" />
-            <StatCard label="Avg Duration" value={`${sm?.avg_duration_minutes || 0} min`} color="#8B5CF6" />
-            <StatCard label="Loyalty Pts" value={sm?.total_loyalty_points?.toLocaleString() || '--'} color="#EC4899" />
+            <StatCard label="Active" value={sm?.active_sessions ?? '--'} color="#00D4AA" sub="right now" info="Number of players currently carded in and playing across the fleet." />
+            <StatCard label="Total Sessions" value={sm?.total_sessions ?? '--'} color="#E8ECF1" info="Total card-in sessions in the selected period, including those already completed." />
+            <StatCard label="Unique Players" value={sm?.unique_players ?? '--'} color="#007AFF" info="How many distinct carded players visited. Helps gauge real foot-traffic vs repeat sessions." />
+            <StatCard label="Total Wagered" value={fmt(sm?.total_wagered)} color="#F5A623" info="Sum of all bets placed during carded play — your carded coin-in." />
+            <StatCard label="Total Won" value={fmt(sm?.total_won)} color="#00D4AA" info="Sum of all payouts received by carded players in the period." />
+            <StatCard label="Avg Duration" value={`${sm?.avg_duration_minutes || 0} min`} color="#8B5CF6" info="Average length of a card-in session. Longer sessions generally signal healthier player engagement." />
+            <StatCard label="Loyalty Pts" value={sm?.total_loyalty_points?.toLocaleString() || '--'} color="#EC4899" info="Total loyalty points earned by players during these sessions. Used for comps and tier upgrades." />
           </div>
         </div>
 
@@ -106,7 +108,7 @@ export default function PlayerSessionsPage() {
           <div className="grid grid-cols-12 gap-3">
             {/* Sessions Timeline */}
             <div className="col-span-4 rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="sessions-timeline">
-              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#6B7A90' }}>Sessions (24h)</div>
+              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#6B7A90' }}>Sessions (24h)<InfoTip description="Number of card-in sessions started each hour over the last 24 hours. Shows your busy vs slow periods." /></div>
               <ResponsiveContainer width="100%" height={100}>
                 <AreaChart data={charts?.sessions_timeline || []}>
                   <defs><linearGradient id="sessG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#007AFF" stopOpacity={0.3}/><stop offset="95%" stopColor="#007AFF" stopOpacity={0}/></linearGradient></defs>
@@ -120,7 +122,7 @@ export default function PlayerSessionsPage() {
 
             {/* Duration Distribution */}
             <div className="col-span-4 rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="duration-chart">
-              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#6B7A90' }}>Session Duration</div>
+              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#6B7A90' }}>Session Duration<InfoTip description="How sessions break down by length (quick, medium, long). Longer tails usually mean more engaged players." /></div>
               <ResponsiveContainer width="100%" height={100}>
                 <BarChart data={charts?.duration_distribution || []} barSize={16}>
                   <XAxis dataKey="name" tick={{ fill: '#6B7A90', fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -135,7 +137,7 @@ export default function PlayerSessionsPage() {
 
             {/* Game Popularity */}
             <div className="col-span-4 rounded border p-3" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="game-popularity">
-              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium" style={{ color: '#6B7A90' }}>Game Popularity</div>
+              <div className="text-[10px] uppercase tracking-wider mb-2 font-medium flex items-center" style={{ color: '#6B7A90' }}>Game Popularity<InfoTip description="Share of sessions on each game title. Use to decide which titles to keep on the floor." /></div>
               <ResponsiveContainer width="100%" height={100}>
                 <PieChart>
                   <Pie data={(charts?.game_popularity || []).slice(0, 6)} cx="50%" cy="50%" innerRadius={25} outerRadius={42} dataKey="value" stroke="none">
@@ -154,7 +156,7 @@ export default function PlayerSessionsPage() {
           <div className="w-80 rounded border flex flex-col overflow-hidden flex-shrink-0" style={{ background: '#12151C', borderColor: '#272E3B' }}>
             <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: '#272E3B' }}>
               <Trophy size={16} style={{ color: '#FFD700' }} />
-              <span className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Top Players</span>
+              <span className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Top Players<InfoTip label="Top Players" description="Your highest-value carded players ranked by total wagered. A quick way to spot the VIPs who deserve attention." /></span>
             </div>
             <div className="flex-1 overflow-y-auto" data-testid="player-leaderboard">
               {(charts?.leaderboard || []).map((p, i) => (
@@ -179,7 +181,7 @@ export default function PlayerSessionsPage() {
           {/* Session List */}
           <div className="flex-1 rounded border flex flex-col overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }}>
             <div className="px-4 py-2.5 border-b flex items-center justify-between" style={{ borderColor: '#272E3B' }}>
-              <span className="font-heading text-sm font-semibold" style={{ color: '#E8ECF1' }}>Sessions</span>
+              <span className="font-heading text-sm font-semibold flex items-center" style={{ color: '#E8ECF1' }}>Sessions<InfoTip label="Sessions" description="Full list of card-in sessions. Click any row to see detailed financials, games played, and related transactions." /></span>
               <div className="flex items-center gap-2">
                 <Funnel size={14} style={{ color: '#6B7A90' }} />
                 <select data-testid="session-status-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-2 py-1 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
@@ -187,12 +189,13 @@ export default function PlayerSessionsPage() {
                   <option value="active">Active</option>
                   <option value="completed">Completed</option>
                 </select>
+                <InfoTip description="Show only active (still playing), only completed, or all sessions." />
               </div>
             </div>
             <div className="grid grid-cols-12 gap-1 px-4 py-1.5 text-[10px] uppercase tracking-wider font-medium border-b" style={{ color: '#6B7A90', borderColor: '#272E3B' }}>
-              <div className="col-span-1">Status</div><div className="col-span-2">Player</div><div className="col-span-1">Tier</div>
-              <div className="col-span-2">Device</div><div className="col-span-1">Duration</div><div className="col-span-1">Games</div>
-              <div className="col-span-2">Wagered</div><div className="col-span-2">Net</div>
+              <div className="col-span-1 flex items-center">Status<InfoTip description="Green dot = still playing, grey = finished. Active sessions have no card-out time yet." /></div><div className="col-span-2 flex items-center">Player<InfoTip description="Carded player who owns the session." /></div><div className="col-span-1 flex items-center">Tier<InfoTip description="Loyalty tier (Bronze, Silver, Gold, Platinum, Diamond). Higher tiers get better comps and bonus multipliers." /></div>
+              <div className="col-span-2 flex items-center">Device<InfoTip description="Machine where the player was carded in." /></div><div className="col-span-1 flex items-center">Duration<InfoTip description="How long the session lasted (or has lasted so far) in minutes." /></div><div className="col-span-1 flex items-center">Games<InfoTip description="Number of distinct game titles played during the session." /></div>
+              <div className="col-span-2 flex items-center">Wagered<InfoTip description="Total dollars bet during the session." /></div><div className="col-span-2 flex items-center">Net<InfoTip description="Player result: won minus wagered. Negative means the player lost; positive means they won." /></div>
             </div>
             <div className="flex-1 overflow-y-auto" data-testid="session-list">
               {sessions.map(s => (

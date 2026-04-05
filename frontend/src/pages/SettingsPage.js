@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { GearSix, Buildings, MapPin, Users, WifiHigh, ChartBar } from '@phosphor-icons/react';
+import InfoTip from '@/components/InfoTip';
+
+const TAB_TIPS = {
+  overview: 'Quick stats about your tenants, sites, users, and agents — the big picture of how the platform is configured.',
+  tenants: 'Tenants are the top-level customer accounts (e.g. casinos or route operators). Each tenant owns its own sites, users, and data.',
+  sites: 'Sites are physical locations inside a tenant — a casino floor, a route stop, a satellite arcade.',
+  users: 'People with login access to the platform. Role controls what they can see and do.',
+  agents: 'Agent processes installed on-site that connect EGMs to the platform. Shown here so you can check versions and heartbeats.',
+};
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -34,12 +43,13 @@ export default function SettingsPage() {
     <div data-testid="settings-page" className="space-y-4">
       <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center gap-3" style={{ color: '#E8ECF1' }}>
         <GearSix size={24} /> Settings
+        <InfoTip label="Settings" description="Configuration for your tenants, sites, users, and field agents. This is the admin hub — changes here affect who can log in and which machines are onboarded." />
       </h1>
 
       <div className="flex gap-2 border-b pb-0" style={{ borderColor: '#272E3B' }}>
         {tabs.map(t => (
+          <div key={t.id} className="flex items-center">
           <button
-            key={t.id}
             data-testid={`settings-tab-${t.id}`}
             onClick={() => setActiveTab(t.id)}
             className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors"
@@ -50,6 +60,8 @@ export default function SettingsPage() {
           >
             <t.icon size={16} /> {t.label}
           </button>
+          <InfoTip description={TAB_TIPS[t.id]} />
+          </div>
         ))}
       </div>
 
@@ -57,7 +69,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-3 gap-4" data-testid="settings-overview">
           {Object.entries(stats).map(([key, val]) => (
             <div key={key} className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
-              <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: '#6B7A90' }}>{key.replace(/_/g, ' ')}</div>
+              <div className="flex items-center text-[11px] uppercase tracking-wider mb-2" style={{ color: '#6B7A90' }}>{key.replace(/_/g, ' ')}<InfoTip description="Live count from the platform. Use these numbers to sanity-check onboarding and to spot unexpected drops." /></div>
               <div className="font-mono text-2xl font-bold" style={{ color: '#E8ECF1' }}>{val}</div>
             </div>
           ))}
@@ -70,7 +82,7 @@ export default function SettingsPage() {
             <div key={t.id} className="rounded border p-4" style={{ background: '#12151C', borderColor: '#272E3B' }}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium" style={{ color: '#E8ECF1' }}>{t.name}</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded capitalize" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>{t.status}</span>
+                <span className="flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded capitalize" style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }}>{t.status}<InfoTip description="Tenant status — Active tenants can log in and operate. Suspended tenants cannot." /></span>
               </div>
               <div className="text-xs font-mono mt-1" style={{ color: '#6B7A90' }}>Plan: {t.plan} | ID: {t.id?.slice(0, 8)}</div>
             </div>
@@ -95,7 +107,7 @@ export default function SettingsPage() {
       {activeTab === 'users' && (
         <div className="rounded border overflow-hidden" style={{ background: '#12151C', borderColor: '#272E3B' }} data-testid="settings-users">
           <div className="grid grid-cols-4 gap-2 px-4 py-2 text-[11px] uppercase tracking-wider font-medium border-b" style={{ color: '#6B7A90', borderColor: '#272E3B' }}>
-            <div>Name</div><div>Email</div><div>Role</div><div>Created</div>
+            <div className="flex items-center">Name<InfoTip description="Full name of the user as shown in the UI." /></div><div className="flex items-center">Email<InfoTip description="Login address for this account. Must be unique across the platform." /></div><div className="flex items-center">Role<InfoTip description="Permission level. Admin = full access. Operator = day-to-day floor management. Viewer = read-only." /></div><div className="flex items-center">Created<InfoTip description="When this user account was created." /></div>
           </div>
           {users.map(u => (
             <div key={u.id || u.email} className="grid grid-cols-4 gap-2 px-4 py-2.5 border-b text-xs" style={{ borderColor: '#272E3B20' }}>

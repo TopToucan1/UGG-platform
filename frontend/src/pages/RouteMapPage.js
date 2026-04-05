@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import 'leaflet/dist/leaflet.css';
 import { MapPin, MagnifyingGlass, X, CaretRight, Globe, Mountains } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import InfoTip from '@/components/InfoTip';
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const STATUS_C = { healthy: '#00D97E', degraded: '#FFB800', critical: '#FF3B3B' };
@@ -74,7 +75,7 @@ export default function RouteMapPage() {
       <div className="w-72 border-r flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
-            <MapPin size={16} style={{ color: '#00B4D8' }} /> Route Map
+            <MapPin size={16} style={{ color: '#00B4D8' }} /> Route Map<InfoTip label="Route Map" description="Geographic view of every retailer site where the platform operates slot machines. Dots are colored by site health so dispatch can spot problems at a glance." />
           </h2>
           {summary && (
             <div className="text-[10px] font-mono mt-1" style={{ color: '#4A6080' }}>
@@ -87,6 +88,7 @@ export default function RouteMapPage() {
             <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: '#4A6080' }} />
             <input data-testid="venue-search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search venues..."
               className="w-full pl-8 pr-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} />
+            <InfoTip description="Filter the venue list and map markers by name or city." />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto" data-testid="venue-list">
@@ -156,14 +158,14 @@ export default function RouteMapPage() {
         {/* Map Style Toggle */}
         <div className="absolute top-4 left-4 z-[1000] flex rounded-lg overflow-hidden" style={{ border: '1px solid #1A2540', background: 'rgba(12,19,34,0.92)', backdropFilter: 'blur(8px)' }} data-testid="map-style-toggle">
           {[
-            { id: 'dark', label: 'Dark', icon: Globe },
-            { id: 'satellite', label: 'Satellite', icon: Mountains },
-            { id: 'streets', label: 'Streets', icon: MapPin },
+            { id: 'dark', label: 'Dark', icon: Globe, tip: 'High-contrast dark basemap, easiest on the eyes in the operations center.' },
+            { id: 'satellite', label: 'Satellite', icon: Mountains, tip: 'Aerial imagery — useful when you need to see the actual building or parking lot.' },
+            { id: 'streets', label: 'Streets', icon: MapPin, tip: 'Classic street map with labels, best for navigating by road.' },
           ].map((s, i) => (
             <button key={s.id} data-testid={`map-style-${s.id}`} onClick={() => switchStyle(s.id)}
               className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors"
               style={{ background: mapStyle === s.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: mapStyle === s.id ? '#00B4D8' : '#4A6080', borderRight: i < 2 ? '1px solid #1A2540' : 'none' }}>
-              <s.icon size={14} /> {s.label}
+              <s.icon size={14} /> {s.label}{s.tip && <InfoTip description={s.tip} />}
             </button>
           ))}
         </div>
@@ -171,10 +173,10 @@ export default function RouteMapPage() {
         {/* Estate Summary Bar */}
         {summary && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-6 px-6 py-2.5 rounded-lg" style={{ background: 'rgba(12,19,34,0.92)', border: '1px solid #1A2540', backdropFilter: 'blur(8px)' }}>
-            <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Venues</div><div className="font-mono text-sm font-bold" style={{ color: '#F0F4FF' }}>{summary.total_venues}</div></div>
-            <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Devices</div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{summary.total_devices}</div></div>
-            <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Online</div><div className="font-mono text-sm font-bold" style={{ color: '#00B4D8' }}>{summary.online_pct}%</div></div>
-            <div className="text-center"><div className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>Today NOR</div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{fmt(summary.today_nor)}</div></div>
+            <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Venues<InfoTip description="Total retailer sites (bars, taverns) on the route." /></div><div className="font-mono text-sm font-bold" style={{ color: '#F0F4FF' }}>{summary.total_venues}</div></div>
+            <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Devices<InfoTip description="Total slot machines across all venues." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{summary.total_devices}</div></div>
+            <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Online<InfoTip description="Percent of machines currently reporting live to the central system." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00B4D8' }}>{summary.online_pct}%</div></div>
+            <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Today NOR<InfoTip description="Net Operating Revenue recorded so far today. NOR = Coin In minus Coin Out." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{fmt(summary.today_nor)}</div></div>
           </div>
         )}
       </div>
@@ -197,18 +199,18 @@ export default function RouteMapPage() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'Devices', value: selected.device_count, color: '#F0F4FF' },
-                { label: 'Online', value: selected.online_count, color: '#00D97E' },
-                { label: 'Exceptions', value: selected.exception_count, color: selected.exception_count > 0 ? '#FF3B3B' : '#00D97E' },
+                { label: 'Devices', value: selected.device_count, color: '#F0F4FF', tip: 'Machines installed at this venue.' },
+                { label: 'Online', value: selected.online_count, color: '#00D97E', tip: 'Machines at this venue currently reporting live.' },
+                { label: 'Exceptions', value: selected.exception_count, color: selected.exception_count > 0 ? '#FF3B3B' : '#00D97E', tip: 'Active alerts at this venue needing attention.' },
               ].map(s => (
                 <div key={s.label} className="rounded p-2.5" style={{ background: '#111827', border: '1px solid #1A2540' }}>
-                  <div className="text-[9px] uppercase tracking-wider" style={{ color: '#4A6080' }}>{s.label}</div>
+                  <div className="text-[9px] uppercase tracking-wider flex items-center" style={{ color: '#4A6080' }}>{s.label}{s.tip && <InfoTip description={s.tip} />}</div>
                   <div className="font-mono text-sm font-bold" style={{ color: s.color }}>{s.value}</div>
                 </div>
               ))}
             </div>
             <div className="rounded p-3" style={{ background: '#111827', border: '1px solid #1A2540' }}>
-              <div className="text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Today's NOR</div>
+              <div className="text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Today's NOR<InfoTip description="Net Operating Revenue at this venue so far today (Coin In minus Coin Out)." /></div>
               <div className="font-mono text-xl font-bold" style={{ color: '#00D97E' }}>{fmt(selected.today_nor)}</div>
               <div className="text-[10px] font-mono" style={{ color: '#4A6080' }}>Coin In: {fmt(selected.today_coin_in)}</div>
             </div>
@@ -241,7 +243,7 @@ export default function RouteMapPage() {
             )}
             <button data-testid="view-venue-devices" onClick={() => navigate(`/devices?search=${selected.name}`)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
-              View Venue Devices <CaretRight size={14} />
+              View Venue Devices <CaretRight size={14} /><InfoTip description="Jump to the Devices page pre-filtered to the machines at this venue." />
             </button>
           </div>
         </div>

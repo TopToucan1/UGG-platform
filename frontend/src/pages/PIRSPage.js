@@ -2,6 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { Crown, Users, CurrencyDollar, Lightning, Gauge, Warning, Trophy, PaperPlaneTilt, Sparkle, Star, CaretRight, Check, GearSix, Plus, Pencil, Trash } from '@phosphor-icons/react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import InfoTip from '@/components/InfoTip';
+
+const TAB_INFO = {
+  overview: 'Fleet-wide snapshot of player segments, tiers, and recent bonus activity.',
+  players: 'Drill into individual player churn scores and trigger manual POC awards.',
+  rules: 'Create, edit, and toggle automated bonus rules that award POC when conditions are met.',
+  rtp: 'Find players whose return-to-player is running below target and compensate them.',
+  roi: 'Measure how much coin-in every $1 of POC has generated — the business case for bonusing.',
+  config: 'Budgets, time multipliers, and engine settings for the automated reward system.',
+};
 
 const SEG_C = { elite_churner: '#FFD700', high_churner: '#00D97E', mid_churner: '#00B4D8', developing: '#8B5CF6', casual: '#4A6080', low_value: '#2A3550' };
 const TIER_C = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', platinum: '#B9F2FF', diamond: '#E0E7FF' };
@@ -100,28 +110,31 @@ export default function PIRSPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Crown size={26} weight="fill" style={{ color: '#FFD700' }} />
-              <div><h1 className="font-heading text-2xl font-bold" style={{ color: '#F0F4FF' }}>PIRS — Player Intelligence</h1>
+              <div><h1 className="font-heading text-2xl font-bold flex items-center" style={{ color: '#F0F4FF' }}>PIRS — Player Intelligence<InfoTip label="PIRS" description="Player Incentive & Rewards System. Scores every carded player for churn risk, then awards POC (player on card) bonuses automatically or manually to keep them playing." /></h1>
               <span className="text-xs" style={{ color: '#4A6080' }}>AI-Driven Churn Scoring & POC Bonusing</span></div>
             </div>
-            <div className="flex gap-1">{tabs.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)} className="px-3 py-1.5 rounded text-[10px] font-medium uppercase tracking-wider"
-                style={{ background: activeTab === t.id ? 'rgba(255,215,0,0.12)' : 'transparent', color: activeTab === t.id ? '#FFD700' : '#4A6080' }}>{t.label}</button>
+            <div className="flex gap-1 items-center">{tabs.map(t => (
+              <span key={t.id} className="flex items-center">
+                <button onClick={() => setActiveTab(t.id)} className="px-3 py-1.5 rounded text-[10px] font-medium uppercase tracking-wider"
+                  style={{ background: activeTab === t.id ? 'rgba(255,215,0,0.12)' : 'transparent', color: activeTab === t.id ? '#FFD700' : '#4A6080' }}>{t.label}</button>
+                <InfoTip label={t.label} description={TAB_INFO[t.id]} />
+              </span>
             ))}</div>
           </div>
           {/* KPI Strip */}
           {d && (
             <div className="grid grid-cols-7 gap-2">
               {[
-                { label: 'Players', value: d.total_players, color: '#F0F4FF', icon: Users },
-                { label: 'Active Now', value: d.active_now, color: '#00D97E', icon: Lightning },
-                { label: 'Avg Score', value: d.avg_churn_score, color: '#FFD700', icon: Gauge },
-                { label: 'Lifetime Coin-In', value: fmt(d.total_lifetime_coin_in), color: '#00B4D8', icon: CurrencyDollar },
-                { label: 'POC Today', value: fmt(d.poc_today), color: '#00D97E', icon: Crown },
-                { label: 'Awards Today', value: d.poc_today_count || 0, color: '#8B5CF6', icon: Star },
-                { label: 'Lapse Risk', value: d.at_risk_players, color: d.at_risk_players > 5 ? '#FF3B3B' : '#FFB800', icon: Warning },
+                { label: 'Players', value: d.total_players, color: '#F0F4FF', icon: Users, info: 'Total distinct carded players tracked by the system.' },
+                { label: 'Active Now', value: d.active_now, color: '#00D97E', icon: Lightning, info: 'Players currently carded in on any machine across the fleet.' },
+                { label: 'Avg Score', value: d.avg_churn_score, color: '#FFD700', icon: Gauge, info: 'Average churn score (0-100). Higher means more players are at risk of drifting away.' },
+                { label: 'Lifetime Coin-In', value: fmt(d.total_lifetime_coin_in), color: '#00B4D8', icon: CurrencyDollar, info: 'Every dollar wagered by carded players, ever. The top-line measure of player value.' },
+                { label: 'POC Today', value: fmt(d.poc_today), color: '#00D97E', icon: Crown, info: 'Dollar value of POC (player-on-card bonus credits) awarded today across all rules.' },
+                { label: 'Awards Today', value: d.poc_today_count || 0, color: '#8B5CF6', icon: Star, info: 'Number of individual POC awards sent today, manual or automated.' },
+                { label: 'Lapse Risk', value: d.at_risk_players, color: d.at_risk_players > 5 ? '#FF3B3B' : '#FFB800', icon: Warning, info: 'Players predicted to stop visiting soon. Consider sending them a POC bonus to win them back.' },
               ].map(k => (
                 <div key={k.label} className="rounded-lg p-3" style={{ background: '#111827', border: '1px solid #1A2540' }}>
-                  <div className="flex items-center justify-between mb-1"><span className="text-[9px] uppercase tracking-widest" style={{ color: '#4A6080' }}>{k.label}</span><k.icon size={14} style={{ color: k.color }} /></div>
+                  <div className="flex items-center justify-between mb-1"><span className="text-[9px] uppercase tracking-widest flex items-center" style={{ color: '#4A6080' }}>{k.label}<InfoTip label={k.label} description={k.info} /></span><k.icon size={14} style={{ color: k.color }} /></div>
                   <div className="font-mono text-lg font-bold" style={{ color: k.color }}>{k.value}</div>
                 </div>
               ))}
@@ -134,7 +147,7 @@ export default function PIRSPage() {
           {activeTab === 'overview' && d && (
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-5 rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#4A6080' }}>Churn Score Distribution</div>
+                <div className="text-[10px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#4A6080' }}>Churn Score Distribution<InfoTip description="How your players break down across churn-risk segments (elite through low-value). Shifts toward 'churner' segments mean you need to step up retention." /></div>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={d.score_distribution || []} barSize={30}>
                     <XAxis dataKey="label" tick={{ fill: '#4A6080', fontSize: 9 }} axisLine={false} tickLine={false} angle={-15} textAnchor="end" height={50} />
@@ -147,7 +160,7 @@ export default function PIRSPage() {
                 </ResponsiveContainer>
               </div>
               <div className="col-span-3 rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#4A6080' }}>Tiers</div>
+                <div className="text-[10px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#4A6080' }}>Tiers<InfoTip description="Loyalty tiers and the POC multiplier players in each tier receive. Higher tiers earn more per bonus trigger." /></div>
                 {(d.tiers || []).map(t => (
                   <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded mb-1" style={{ background: '#111827' }}>
                     <Trophy size={12} weight="fill" style={{ color: TIER_C[t.id] || '#4A6080' }} />
@@ -157,7 +170,7 @@ export default function PIRSPage() {
                 ))}
               </div>
               <div className="col-span-4 rounded-lg border p-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-3 font-medium" style={{ color: '#FFD700' }}>Live Bonus Feed</div>
+                <div className="text-[10px] uppercase tracking-wider mb-3 font-medium flex items-center" style={{ color: '#FFD700' }}>Live Bonus Feed<InfoTip description="Real-time stream of POC awards being sent to players. Useful to verify the engine is actually firing rules." /></div>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {(d.recent_awards || []).map(a => (
                     <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 rounded text-[10px]" style={{ background: '#111827' }}>
@@ -176,7 +189,7 @@ export default function PIRSPage() {
           {activeTab === 'players' && (
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-5 rounded-lg border overflow-hidden" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium" style={{ color: '#FFD700' }}>Top Players by Churn Score</div>
+                <div className="px-4 py-2 text-[10px] uppercase tracking-wider font-medium flex items-center" style={{ color: '#FFD700' }}>Top Players by Churn Score<InfoTip description="Players ranked by churn score — the highest scores are your most loyal, highest-value players. Click any row to open their profile." /></div>
                 {players.map((p, i) => (
                   <button key={p.player_id} onClick={() => selectPlayer(p)} className="w-full text-left px-4 py-2 border-b flex items-center gap-2 hover:bg-white/[0.02]"
                     style={{ borderColor: '#1A254010', background: selected?.player_id === p.player_id ? 'rgba(255,215,0,0.04)' : 'transparent' }}>
@@ -207,13 +220,13 @@ export default function PIRSPage() {
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { l: 'Play-Back', v: `${(detail.play_back_rate * 100).toFixed(0)}%`, c: '#00D97E' },
-                      { l: 'Cash-Out', v: `${(detail.cash_out_rate * 100).toFixed(0)}%`, c: '#FF3B3B' },
-                      { l: 'Lapse Risk', v: `${detail.lapse_risk}%`, c: detail.lapse_risk > 50 ? '#FF3B3B' : '#00D97E' },
-                      { l: 'POC ROI', v: `${detail.poc_roi_lifetime}:1`, c: '#FFD700' },
+                      { l: 'Play-Back', v: `${(detail.play_back_rate * 100).toFixed(0)}%`, c: '#00D97E', info: 'Share of winnings the player puts back into play. Higher = the player keeps feeding the machine.' },
+                      { l: 'Cash-Out', v: `${(detail.cash_out_rate * 100).toFixed(0)}%`, c: '#FF3B3B', info: 'Share of winnings the player cashes out. High cash-out players leave with money instead of replaying.' },
+                      { l: 'Lapse Risk', v: `${detail.lapse_risk}%`, c: detail.lapse_risk > 50 ? '#FF3B3B' : '#00D97E', info: 'Probability this player stops visiting soon. Over 50% is a red flag — consider sending POC.' },
+                      { l: 'POC ROI', v: `${detail.poc_roi_lifetime}:1`, c: '#FFD700', info: 'Lifetime return on POC — for every $1 of bonus sent, how much coin-in came back. 3:1 or better is healthy.' },
                     ].map(m => (
                       <div key={m.l} className="rounded p-2" style={{ background: '#111827' }}>
-                        <div className="text-[8px] uppercase tracking-wider" style={{ color: '#4A6080' }}>{m.l}</div>
+                        <div className="text-[8px] uppercase tracking-wider flex items-center" style={{ color: '#4A6080' }}>{m.l}<InfoTip label={m.l} description={m.info} /></div>
                         <div className="font-mono text-sm font-bold" style={{ color: m.c }}>{m.v}</div>
                       </div>
                     ))}
@@ -235,6 +248,7 @@ export default function PIRSPage() {
                     <button onClick={awardPoc} className="flex items-center gap-1 px-3 py-1 rounded text-[10px] font-medium" style={{ background: '#FFD700', color: '#070B14' }}>
                       <PaperPlaneTilt size={12} /> Send ${pocAmount} POC
                     </button>
+                    <InfoTip description="Manually credit the selected player with bonus POC. Use this as a one-off courtesy or to recover a specific player." />
                   </div>
                   {/* Recent Awards */}
                   {detail.recent_awards?.length > 0 && (
@@ -262,25 +276,29 @@ export default function PIRSPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-mono" style={{ color: '#4A6080' }}>{rules.length} rules ({rules.filter(r => r.is_active).length} active)</span>
                   <button onClick={runEngine} className="flex items-center gap-1 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#00D97E', color: '#070B14' }}><Lightning size={12} /> Run Engine Now</button>
+                  <InfoTip description="Evaluate every active rule against the current player base right now and issue any qualifying POC awards immediately." />
                 </div>
-                <button onClick={() => setShowNewRule(true)} className="flex items-center gap-1 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FFD700', color: '#070B14' }}><Plus size={12} /> Create Rule</button>
+                <div className="flex items-center">
+                  <button onClick={() => setShowNewRule(true)} className="flex items-center gap-1 px-3 py-1.5 rounded text-[10px] font-medium" style={{ background: '#FFD700', color: '#070B14' }}><Plus size={12} /> Create Rule</button>
+                  <InfoTip description="Build a new automated bonus rule. Define a trigger, POC amount, and conditions — the engine will award POC whenever a player matches." />
+                </div>
               </div>
               {/* New Rule Form */}
               {showNewRule && (
                 <div className="rounded-lg border p-4 space-y-3" style={{ background: '#0C1322', borderColor: '#FFD70040' }}>
-                  <h4 className="text-sm font-semibold" style={{ color: '#F0F4FF' }}>Create New Reward Rule</h4>
+                  <h4 className="text-sm font-semibold flex items-center" style={{ color: '#F0F4FF' }}>Create New Reward Rule<InfoTip description="Define a new automated bonus rule. The engine will evaluate this rule against all players and award POC when conditions are met." /></h4>
                   <div className="grid grid-cols-3 gap-3">
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Rule Name</label><input value={newRule.name} onChange={e => setNewRule(p => ({ ...p, name: e.target.value }))} placeholder="Weekend Bonus" className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Trigger</label><select value={newRule.trigger} onChange={e => setNewRule(p => ({ ...p, trigger: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['card_in', 'coin_in_milestone', 'session_duration', 'post_win_playback', 'lapse_risk', 'return_visit', 'churn_threshold'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>POC Amount ($)</label><input type="number" value={newRule.poc_fixed} onChange={e => setNewRule(p => ({ ...p, poc_fixed: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Rule Name<InfoTip description="A short friendly name so operators know what this rule does (e.g. 'Weekend Loyalty Boost')." /></label><input value={newRule.name} onChange={e => setNewRule(p => ({ ...p, name: e.target.value }))} placeholder="Weekend Bonus" className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Trigger<InfoTip description="The event that fires this rule (e.g. card-in, coin-in milestone, lapse risk reached). Pick what action should earn the player POC." /></label><select value={newRule.trigger} onChange={e => setNewRule(p => ({ ...p, trigger: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['card_in', 'coin_in_milestone', 'session_duration', 'post_win_playback', 'lapse_risk', 'return_visit', 'churn_threshold'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>POC Amount ($)<InfoTip description="Dollar value of the bonus sent to the player each time this rule fires. Tier multipliers may boost this." /></label><input type="number" value={newRule.poc_fixed} onChange={e => setNewRule(p => ({ ...p, poc_fixed: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Min Churn Score</label><input type="number" value={newRule.condition_churn_min} onChange={e => setNewRule(p => ({ ...p, condition_churn_min: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Max Per Day</label><input type="number" value={newRule.max_per_day} onChange={e => setNewRule(p => ({ ...p, max_per_day: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Cooldown (min)</label><input type="number" value={newRule.cooldown_min} onChange={e => setNewRule(p => ({ ...p, cooldown_min: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
-                    <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Time Window</label><select value={newRule.condition_time_window} onChange={e => setNewRule(p => ({ ...p, condition_time_window: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['always', 'weekdays', 'weekends', 'happy_hour'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Min Churn Score<InfoTip description="Only players with at least this churn score qualify. Higher numbers restrict to your top-tier loyal players." /></label><input type="number" value={newRule.condition_churn_min} onChange={e => setNewRule(p => ({ ...p, condition_churn_min: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Max Per Day<InfoTip description="Cap on how many times a single player can hit this rule per day. Prevents runaway bonusing." /></label><input type="number" value={newRule.max_per_day} onChange={e => setNewRule(p => ({ ...p, max_per_day: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Cooldown (min)<InfoTip description="Minimum minutes between awards to the same player under this rule. Stops back-to-back payouts." /></label><input type="number" value={newRule.cooldown_min} onChange={e => setNewRule(p => ({ ...p, cooldown_min: +e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                    <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Time Window<InfoTip description="When the rule is allowed to fire: always, weekdays only, weekends only, or happy-hour window." /></label><select value={newRule.condition_time_window} onChange={e => setNewRule(p => ({ ...p, condition_time_window: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }}>{['always', 'weekdays', 'weekends', 'happy_hour'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></div>
                   </div>
-                  <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Message Template (use {'{amount}'} for POC value)</label><input value={newRule.message_template} onChange={e => setNewRule(p => ({ ...p, message_template: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
+                  <div><label className="block text-[9px] uppercase tracking-wider mb-1 flex items-center" style={{ color: '#4A6080' }}>Message Template (use {'{amount}'} for POC value)<InfoTip description="The message the player sees when the POC lands — include {amount} to substitute the dollar value." /></label><input value={newRule.message_template} onChange={e => setNewRule(p => ({ ...p, message_template: e.target.value }))} className="w-full px-3 py-2 rounded text-xs outline-none" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
                   <div className="flex gap-2"><button onClick={createRule} className="px-4 py-2 rounded text-xs font-medium" style={{ background: '#FFD700', color: '#070B14' }}>Create Rule</button><button onClick={() => setShowNewRule(false)} className="px-4 py-2 rounded text-xs" style={{ color: '#4A6080' }}>Cancel</button></div>
                 </div>
               )}
@@ -354,8 +372,11 @@ export default function PIRSPage() {
           {activeTab === 'rtp' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-heading text-lg font-semibold" style={{ color: '#F0F4FF' }}>RTP Compensation — Players Below 70% Return</h3>
-                <button onClick={fetchRtpPlayers} className="flex items-center gap-1 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}><Warning size={14} /> Scan Players</button>
+                <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>RTP Compensation — Players Below 70% Return<InfoTip label="RTP Compensation" description="RTP (return to player) is the share of a player's wagers they win back. Players running cold — well below the advertised RTP — may leave unhappy. Use this tool to find them and send POC to smooth their experience." /></h3>
+                <div className="flex items-center">
+                  <button onClick={fetchRtpPlayers} className="flex items-center gap-1 px-4 py-2 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}><Warning size={14} /> Scan Players</button>
+                  <InfoTip description="Run a scan across carded players for anyone whose RTP is under 70% with at least $50 played. Returns a list you can review and compensate." />
+                </div>
               </div>
               {rtpPlayers.length > 0 ? (
                 <div className="space-y-2">
@@ -390,15 +411,15 @@ export default function PIRSPage() {
           {activeTab === 'roi' && roi && (
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-lg border p-6 text-center" style={{ background: '#0C1322', borderColor: '#FFD70030' }}>
-                <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#4A6080' }}>POC ROI ({roi.period_days} days)</div>
+                <div className="text-[10px] uppercase tracking-wider mb-2 flex items-center justify-center" style={{ color: '#4A6080' }}>POC ROI ({roi.period_days} days)<InfoTip label="POC ROI" description="For every $1 of POC bonus sent out, how many dollars of coin-in came back from those players. Above 3:1 is healthy for most routes." /></div>
                 <div className="font-mono text-5xl font-black" style={{ color: '#FFD700' }}>{roi.roi}:1</div>
                 <div className="text-xs mt-2" style={{ color: '#4A6080' }}>Target: {roi.target_roi}:1</div>
               </div>
               <div className="rounded-lg border p-6 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <div className="flex justify-between text-sm"><span style={{ color: '#4A6080' }}>Total POC Invested</span><span className="font-mono font-bold" style={{ color: '#FF3B3B' }}>{fmt(roi.total_poc)}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: '#4A6080' }}>Coin-In Generated</span><span className="font-mono font-bold" style={{ color: '#00D97E' }}>{fmt(roi.estimated_coin_in_from_poc)}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: '#4A6080' }}>Awards Count</span><span className="font-mono font-bold" style={{ color: '#F0F4FF' }}>{roi.awards_count}</span></div>
-                <div className="flex justify-between text-sm border-t pt-2" style={{ borderColor: '#1A2540' }}><span style={{ color: '#F0F4FF' }}>Net Return per $1 POC</span><span className="font-mono font-bold text-lg" style={{ color: '#FFD700' }}>${roi.roi}</span></div>
+                <div className="flex justify-between text-sm"><span className="flex items-center" style={{ color: '#4A6080' }}>Total POC Invested<InfoTip description="Total dollars of POC awarded during the reporting window — the cost side of the ROI calculation." /></span><span className="font-mono font-bold" style={{ color: '#FF3B3B' }}>{fmt(roi.total_poc)}</span></div>
+                <div className="flex justify-between text-sm"><span className="flex items-center" style={{ color: '#4A6080' }}>Coin-In Generated<InfoTip description="Estimated wagers made by players who received a POC bonus. The return side of the ROI calculation." /></span><span className="font-mono font-bold" style={{ color: '#00D97E' }}>{fmt(roi.estimated_coin_in_from_poc)}</span></div>
+                <div className="flex justify-between text-sm"><span className="flex items-center" style={{ color: '#4A6080' }}>Awards Count<InfoTip description="Number of individual POC awards issued in the period." /></span><span className="font-mono font-bold" style={{ color: '#F0F4FF' }}>{roi.awards_count}</span></div>
+                <div className="flex justify-between text-sm border-t pt-2" style={{ borderColor: '#1A2540' }}><span className="flex items-center" style={{ color: '#F0F4FF' }}>Net Return per $1 POC<InfoTip description="Coin-in generated divided by POC spent. The bottom-line answer to 'is bonusing worth it?'." /></span><span className="font-mono font-bold text-lg" style={{ color: '#FFD700' }}>${roi.roi}</span></div>
               </div>
             </div>
           )}
@@ -406,9 +427,9 @@ export default function PIRSPage() {
           {/* SETTINGS / CONFIGURATION */}
           {activeTab === 'config' && config && (
             <div className="space-y-4">
-              <h3 className="font-heading text-lg font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}><GearSix size={20} /> PIRS Configuration</h3>
+              <h3 className="font-heading text-lg font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}><GearSix size={20} /> PIRS Configuration<InfoTip label="PIRS Configuration" description="Control the limits and behavior of the automated reward engine. Set budgets before enabling auto-awards." /></h3>
               <div className="rounded-lg border p-5 space-y-4" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <h4 className="text-sm font-semibold" style={{ color: '#FFD700' }}>Budget Controls</h4>
+                <h4 className="text-sm font-semibold flex items-center" style={{ color: '#FFD700' }}>Budget Controls<InfoTip description="Hard spending caps for the bonus engine. If a limit is hit, the engine stops awarding POC until the window resets." /></h4>
                 <p className="text-xs" style={{ color: '#4A6080' }}>Set spending limits to control how much POC the system awards automatically.</p>
                 <div className="grid grid-cols-3 gap-3">
                   {[['budget_daily_limit', 'Daily Budget ($)'], ['budget_weekly_limit', 'Weekly Budget ($)'], ['budget_monthly_limit', 'Monthly Budget ($)'], ['budget_per_player_daily', 'Per Player Daily ($)'], ['budget_per_player_session', 'Per Player Session ($)'], ['max_poc_amount', 'Max POC Amount ($)']].map(([k, l]) => (
@@ -417,7 +438,7 @@ export default function PIRSPage() {
                 </div>
               </div>
               <div className="rounded-lg border p-5 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <h4 className="text-sm font-semibold" style={{ color: '#00B4D8' }}>Time-Based Multipliers</h4>
+                <h4 className="text-sm font-semibold flex items-center" style={{ color: '#00B4D8' }}>Time-Based Multipliers<InfoTip description="Boost POC payouts during specific windows like happy hour or weekends to drive visits at targeted times." /></h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="flex items-center gap-2 text-xs mb-2 cursor-pointer" style={{ color: '#F0F4FF' }}><input type="checkbox" checked={config.happy_hour_enabled || false} onChange={e => setConfig(p => ({ ...p, happy_hour_enabled: e.target.checked }))} className="w-4 h-4" />Enable Happy Hour</label>
@@ -435,7 +456,7 @@ export default function PIRSPage() {
                 </div>
               </div>
               <div className="rounded-lg border p-5 space-y-3" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
-                <h4 className="text-sm font-semibold" style={{ color: '#00D97E' }}>Engine Controls</h4>
+                <h4 className="text-sm font-semibold flex items-center" style={{ color: '#00D97E' }}>Engine Controls<InfoTip description="Toggle auto-running of the rule engine and player score recalculation. Disable if you want everything to be manual operator action." /></h4>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#F0F4FF' }}><input type="checkbox" checked={config.auto_rules_enabled || false} onChange={e => setConfig(p => ({ ...p, auto_rules_enabled: e.target.checked }))} className="w-4 h-4" />Auto-run reward rules (award POC when conditions met)</label>
                   <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#F0F4FF' }}><input type="checkbox" checked={config.auto_scale_rewards || false} onChange={e => setConfig(p => ({ ...p, auto_scale_rewards: e.target.checked }))} className="w-4 h-4" />Auto-scale as player base grows (recalculate scores each run)</label>
@@ -445,7 +466,7 @@ export default function PIRSPage() {
                   <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Min POC Amount ($)</label><input type="number" value={config.min_poc_amount || 5} onChange={e => setConfig(p => ({ ...p, min_poc_amount: +e.target.value }))} className="w-full px-3 py-2 rounded text-sm outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
                 </div>
               </div>
-              <button onClick={() => updateConfig(config)} className="w-full py-3 rounded-lg text-sm font-semibold" style={{ background: '#FFD700', color: '#070B14' }}>Save All Configuration Changes</button>
+              <button onClick={() => updateConfig(config)} className="w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center" style={{ background: '#FFD700', color: '#070B14' }}>Save All Configuration Changes<InfoTip description="Persist every setting change above. Nothing takes effect until this is clicked." /></button>
             </div>
           )}
         </div>
