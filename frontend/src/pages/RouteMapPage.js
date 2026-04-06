@@ -5,13 +5,13 @@ import 'leaflet/dist/leaflet.css';
 import { MapPin, MagnifyingGlass, X, CaretRight, Globe, Mountains } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 
-const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const STATUS_C = { healthy: '#00D97E', degraded: '#FFB800', critical: '#FF3B3B' };
 
+// Free tile providers that don't require API keys
 const TILE_URLS = {
-  dark: `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-  satellite: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-  streets: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 };
 
 function FitBounds({ venues }) {
@@ -121,9 +121,7 @@ export default function RouteMapPage() {
           <TileLayer
             key={tileKey}
             url={TILE_URLS[mapStyle]}
-            tileSize={512}
-            zoomOffset={-1}
-            attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | <a href="https://carto.com/">CARTO</a>'
           />
           <FitBounds venues={filtered} />
           <StyleSwitcher mapStyle={mapStyle} setMapStyle={setMapStyle} />
