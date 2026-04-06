@@ -34,6 +34,7 @@ import PIRSPage from '@/pages/PIRSPage';
 import PinPlayersPage from '@/pages/PinPlayersPage';
 import PinSessionsPage from '@/pages/PinSessionsPage';
 import SessionAnomaliesPage from '@/pages/SessionAnomaliesPage';
+import FlywheelPage from '@/pages/FlywheelPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -103,6 +104,7 @@ function AppRoutes() {
       <Route path="/pin-players" element={<ProtectedRoute><PinPlayersPage /></ProtectedRoute>} />
       <Route path="/pin-sessions" element={<ProtectedRoute><PinSessionsPage /></ProtectedRoute>} />
       <Route path="/session-anomalies" element={<ProtectedRoute><SessionAnomaliesPage /></ProtectedRoute>} />
+      <Route path="/flywheel" element={<ProtectedRoute><FlywheelPage /></ProtectedRoute>} />
       <Route path="/command-center" element={<FullscreenRoute><CommandCenterPage /></FullscreenRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

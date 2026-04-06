@@ -5,7 +5,7 @@ import {
   Cpu, CaretLeft, CaretRight, CurrencyDollar, Users,
   Storefront, Trophy, FileArrowDown, Monitor, Cube, MapPin, Scales,
   NavigationArrow, ShieldCheck, MagnifyingGlass, WifiHigh, UsersThree, BookOpen, Sparkle, Crown,
-  IdentificationCard, ClockCounterClockwise, Warning
+  IdentificationCard, ClockCounterClockwise, Warning, Atom
 } from '@phosphor-icons/react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { useState } from 'react';
@@ -22,6 +22,7 @@ const navItems = [
   { path: '/pin-players', label: 'PIN Players', icon: IdentificationCard, tip: 'Manage PIN-based player accounts. Create, edit, change PINs, or deactivate. No physical cards — players log in at EGMs by entering a 4–8 digit PIN.' },
   { path: '/pin-sessions', label: 'PIN Sessions', icon: ClockCounterClockwise, tip: 'Live and historical view of credit sessions (money layer) and PIN sessions (player layer). See who is playing right now and review recent activity.' },
   { path: '/session-anomalies', label: 'Session Anomalies', icon: Warning, tip: 'Automatic detection of suspicious behavior: money movement, bonus farming, PIN sharing, rapid cycling. Review HIGH severity flags daily.' },
+  { path: '/flywheel', label: 'Engagement Engine', icon: Atom, tip: 'FlywheelOS: intelligent engagement engine that automatically scores next-best-actions and delivers targeted POC offers to EGMs. 11 rule families, multi-factor decision scoring, 6 background workers. Manage rules, view action queue, and monitor engine health.' },
   { path: '/jackpots', label: 'Jackpots', icon: Trophy, tip: 'Track handpay jackpots (W-2G taxable wins) and progressive jackpot status. Approve payouts and generate tax forms.' },
   { path: '/connectors', label: 'Connectors', icon: Plugs, tip: 'Configure protocol adapters (SAS serial, G2S HTTPS, S2S) that connect UGG to your EGM hardware. Usually set up once during installation.' },
   { path: '/marketplace', label: 'Marketplace', icon: Storefront, tip: 'Browse and provision game content: themes, math models, progressives. Push new games to your machines without physical service visits.' },

@@ -51,6 +51,7 @@ from routes.setup import router as setup_router
 from routes.gamification import router as gamification_router
 from routes.developer_sdk import router as developer_sdk_router
 from routes.players_pin import router as players_pin_router
+from routes.flywheel import router as flywheel_router
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -128,6 +129,7 @@ app.include_router(setup_router)
 app.include_router(gamification_router)
 app.include_router(developer_sdk_router)
 app.include_router(players_pin_router)
+app.include_router(flywheel_router)
 
 
 @app.get("/api")
@@ -170,6 +172,12 @@ async def startup():
         # Start Gateway Core pipeline (needed for real devices)
         from gateway_core import gateway_core
         await gateway_core.start()
+
+        # Start FlywheelOS engagement engine (hooks into pipeline)
+        from flywheel import flywheel_engine
+        await flywheel_engine.start()
+        gateway_core.pipeline.add_processor(flywheel_engine.process_pipeline_event)
+
         logger.info("UGG Platform ready — PRODUCTION MODE (no demo data)")
 
     else:
@@ -194,6 +202,10 @@ async def startup():
         from session_demo import seed_demo_pin_players, start_session_demo
         await seed_demo_pin_players()
         start_session_demo()
+        # Start FlywheelOS engagement engine (hooks into pipeline)
+        from flywheel import flywheel_engine
+        await flywheel_engine.start()
+        gateway_core.pipeline.add_processor(flywheel_engine.process_pipeline_event)
         from routes.hardware import seed_library
         await seed_library()
         from routes.route_v2 import seed_route_v2
