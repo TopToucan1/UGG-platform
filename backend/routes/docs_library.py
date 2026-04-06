@@ -2136,7 +2136,8 @@ The reverse is also true — a machine can only have one PIN logged in at a time
         {"id": "pin-best-practices", "title": "Best Practices for Route Operators", "content": """**Daily routine (5 minutes):**
 1. Open **Session Anomalies** page — check for any new HIGH severity flags
 2. Open **PIN Sessions** → Active Now tab — see who's playing right now, spot anything unusual
-3. If anything looks off, click through to the detail view and investigate
+3. Open **Engagement Engine** → Overview tab — confirm workers are healthy, check POC awarded today
+4. If anything looks off, click through to the detail view and investigate
 
 **Weekly routine (15 minutes):**
 1. Review all anomalies from the past 7 days — look for repeat offenders (same player ID showing up in multiple flags)
@@ -2173,6 +2174,247 @@ The reverse is also true — a machine can only have one PIN logged in at a time
 3. Look at anomalies filed against that player
 4. Create a new account with a new PIN when you've verified the real player's identity
 5. Document the incident in the notes field of the new account"""},
+    ]},
+
+    {"id": "flywheel-engagement", "title": "FlywheelOS Engagement Engine", "icon": "Atom", "docs": [
+        {"id": "fw-overview", "title": "What is FlywheelOS?", "content": """**FlywheelOS is the intelligent engagement engine built into UGG.** It watches everything happening on your route — every bill inserted, every game played, every session started and ended — and automatically decides what to offer each player, when to offer it, and how much to offer.
+
+**Why does it matter?**
+Without FlywheelOS, you have to manually decide which players get bonuses, when to send offers, and how much to give. That's slow, inconsistent, and impossible to scale across hundreds of players and dozens of machines. FlywheelOS does this in real-time, automatically, for every player on every machine.
+
+**What it does:**
+- Watches player events as they happen (bill-in, game play, cashout, login, logout)
+- Evaluates 11 different engagement rules to find the best action for each player
+- Scores every possible action using a formula that considers urgency, relevance, player tier, and fatigue
+- Enforces limits so players don't get bombarded (daily caps, per-rule cooldowns, quiet hours)
+- Delivers POC (Play-Only Credits) offers directly to the EGM screen
+- Tracks every action, delivery, and reward for full auditability
+
+**Where to find it:**
+Click **Engagement Engine** in the left sidebar. You'll see the FlywheelOS admin console with 6 tabs."""},
+
+        {"id": "fw-rules", "title": "The 11 Engagement Rules", "content": """FlywheelOS comes with 11 pre-configured rule families. Each rule watches for a specific situation and responds with a targeted action. You can enable, disable, or tune any rule without touching code.
+
+**1. Loss Recovery** (HIGH priority)
+- **Fires when:** A player's credit session closes with a net loss over $20
+- **Action:** Offer POC to come back and try again
+- **Why it works:** Players who just lost are most likely to leave. A timely bonus can bring them back for another session
+- **Default:** 10% of loss as POC, capped at $25
+
+**2. Milestone Proximity** (MEDIUM priority)
+- **Fires when:** A player is within 10% of a coin-in milestone ($100, $250, $500, $1000, $2500)
+- **Action:** Encourage them to keep playing to hit the milestone for bonus POC
+- **Why it works:** People close to a goal are motivated to finish. "You're only $12 away from the $250 milestone!" is powerful
+
+**3. Re-Entry** (HIGH priority, scheduled)
+- **Fires when:** A player hasn't visited in 7+ days (dormant or at-risk)
+- **Action:** Welcome-back POC offer, delivered when they next log in
+- **Why it works:** Players who've been gone a week need a reason to come back. This is your win-back campaign on autopilot
+
+**4. Low Friction Earn Path** (LOW priority, scheduled)
+- **Fires when:** New or low-activity player with fewer than 10 sessions
+- **Action:** Suggest simple actions for quick POC ("Play 10 more games for $3 Play Credits!")
+- **Why it works:** New players need small, easy wins to build the habit
+
+**5. Social Proof — Hot Floor**
+- **Fires when:** 3+ players at the same site have won in the last hour
+- **Action:** "3 players at this location hit wins in the last hour! The floor is hot!"
+- **Why it works:** Social proof creates excitement and FOMO. If other people are winning, you want to play too
+
+**6. Group Momentum**
+- **Fires when:** Play volume at a site is up 20%+ compared to the 24-hour average
+- **Action:** Extra POC for milestones hit during the rush
+- **Why it works:** Momentum breeds more play. Amplifying rewards during busy periods compounds the effect
+
+**7. Shareable Moment — Big Win**
+- **Fires when:** Handpay, jackpot, or 100x+ win
+- **Action:** Celebrate the win, add to Winners Circle / Hall of Fame
+- **Why it works:** Big wins are emotional peaks. Celebrating them reinforces the positive experience
+
+**8. Interest Match**
+- **Fires when:** Player starts a session and has a strong game-type affinity (e.g., prefers slots over video poker)
+- **Action:** Suggest content matching their preference
+- **Why it works:** Relevant suggestions feel helpful, not spammy
+
+**9. Resource Deployment — Use Your POC**
+- **Fires when:** Player logs in and has unspent POC awards
+- **Action:** Remind them to redeem before expiry
+- **Why it works:** POC that goes unused is waste. A reminder converts it into play
+
+**10. Session Extension**
+- **Fires when:** Active player has been playing 45+ minutes and is in an active/power tier
+- **Action:** Offer $10 POC to keep playing
+- **Why it works:** Extended sessions mean more revenue. A small bonus at the right moment keeps them in the seat
+
+**11. Cold Streak Comfort**
+- **Fires when:** 20+ games with no win detected
+- **Action:** Encouragement message + $5 POC
+- **Why it works:** Cold streaks cause players to walk away frustrated. A small boost keeps them engaged through the variance"""},
+
+        {"id": "fw-scoring", "title": "How Actions Are Scored (Decision Engine)", "content": """Not every triggered rule results in an action reaching the player. FlywheelOS uses a **scoring formula** to rank all possible actions and pick the single best one.
+
+**The Scoring Formula:**
+```
+Score = (Priority x 25%) + (Relevance x 25%) + (Urgency x 20%)
+      + (Channel Confidence x 15%) + (Tier Bonus x 15%)
+      - Fatigue Penalty
+```
+
+**What each factor means:**
+- **Priority** — How important the rule is (set by you in the Rules tab, 0-100). Loss Recovery has priority 85. Interest Match has 35.
+- **Relevance** — How well the action matches this specific player's behavior and preferences. A player who loves slots gets higher relevance for a slot-related offer.
+- **Urgency** — How time-sensitive the action is. Loss Recovery is 0.9 (very urgent — the player just lost and might leave). Social Proof is 0.4 (informational, not urgent).
+- **Channel Confidence** — How reliable the delivery channel is. "In-app surface" (EGM screen) = 1.0 because the player is physically sitting in front of it. Inbox = 0.7.
+- **Tier Bonus** — Higher-tier players (Gold, Platinum, Diamond) get a scoring boost because they're more valuable to retain.
+- **Fatigue Penalty** — Players who've already received multiple actions today get a penalty to prevent over-messaging. Fatigue decays over time.
+
+**Actions scoring below 10% are discarded.** The highest-scoring action wins.
+
+**After scoring, 6 policy checks run in order:**
+1. **Daily cap** — Has this player already received 5 actions today? (configurable)
+2. **Per-rule cooldown** — Has this same rule fired for this player within its cooldown window?
+3. **Anomaly suppression** — Does this player have an open HIGH-severity anomaly? (engagement is paused for flagged players)
+4. **Quiet hours** — Is it within configured quiet hours? (default: none, since gaming is 24/7)
+5. **Device online** — Is the target EGM actually online and reachable?
+6. **Opt-in** — Has the player opted out of this channel?
+
+If all 6 pass, the action is **approved** and delivered. If any fails, the action is **suppressed** with a logged reason, and the next-highest scoring action is tried."""},
+
+        {"id": "fw-admin-overview", "title": "Using the FlywheelOS Admin Console", "content": """**Open the admin console:** Click **Engagement Engine** in the left sidebar. You'll see 6 tabs.
+
+**Tab 1: Overview**
+Your at-a-glance health dashboard. Shows:
+- **Actions Today** — How many engagement actions were approved and delivered
+- **POC Awarded** — Total Play-Only Credits issued by FlywheelOS today
+- **Events Processed** — How many player events the engine evaluated
+- **Active Rules** — How many rule families are currently enabled
+- **Lifecycle Distribution** — How your players are classified (new, active, power, at_risk, dormant, resurrected)
+- **Top Families** — Which rules are firing most today
+- **Recent Worker Runs** — Whether the background workers are completing successfully (green = good, red = check logs)
+
+Auto-refreshes every 5 seconds. This is your "is FlywheelOS healthy?" view.
+
+**Tab 2: Rules**
+Shows all 11 rule families with toggles to enable/disable each one. Click the toggle to immediately activate or deactivate a rule. You can see:
+- Rule name and family (color-coded)
+- Trigger type (event = fires instantly, scheduled = runs on a timer)
+- Priority (0-100, higher wins scoring ties)
+- POC Base (the base amount before tier multiplier, -- means no POC, just messaging)
+
+**Tip:** Start by enabling all rules and monitoring the Overview tab for a few days. Then disable any rules that aren't generating conversions.
+
+**Tab 3: Action Queue**
+Every action FlywheelOS generates shows up here. Columns:
+- Player (first 12 chars of ID)
+- Rule that triggered it
+- Family (color-coded badge)
+- POC amount (after tier multiplier)
+- Score (0-100%, higher = more confident it was the right action)
+- Status (approved → dispatched → delivered, or rejected if policy blocked it)
+
+**Tab 4: Profiles**
+Actor profiles showing how FlywheelOS sees each player:
+- Lifecycle Stage (new/active/power/at_risk/dormant/resurrected)
+- Fatigue (0-100%, how "tired" the player is of receiving messages — decays over time)
+- Session Count and Events in last 7 days
+- Actions Today (to check against daily cap)
+
+**Tab 5: Worker Logs**
+Execution history for all 6 background workers. Each row shows the worker name, status (completed/failed), items processed, time, and a summary. If you see red "failed" entries, check the summary for error details.
+
+**Tab 6: Engine Control**
+- Green dot = engine running, red = stopped
+- **Pause** — temporarily stops all workers (events still queue, just not processed)
+- **Resume** — restarts workers
+- **Run Now** — manually trigger any single worker (useful for testing)"""},
+
+        {"id": "fw-workers", "title": "The 6 Background Workers", "content": """FlywheelOS runs 6 background tasks on repeating schedules. They handle everything that can't happen in real-time (like checking on dormant players or recomputing scores).
+
+**1. Profile Updater** (every 60 seconds)
+Recomputes player lifecycle stages and fatigue scores based on recent session activity. If a player just finished a session, their profile is refreshed within a minute.
+
+**2. Scheduled Rule Runner** (every 120 seconds)
+Evaluates time-based rules (Re-Entry, Low Friction Earn Path) against all at-risk and dormant players. This is how FlywheelOS finds players who haven't been seen in a week and queues up welcome-back offers.
+
+**3. Action Dispatcher** (every 10 seconds)
+Picks up approved actions that weren't delivered immediately (deferred actions) and sends them through the delivery pipeline. This is the fastest worker — checks every 10 seconds.
+
+**4. Delivery Reconciler** (every 5 minutes)
+Checks whether messages sent to EGM screens were actually delivered. Updates reward status from "pending" to "settled" once delivery is confirmed.
+
+**5. Segment Evaluator** (every hour)
+Batch recomputes lifecycle segments for ALL known players. This catches players whose stage should change even if they haven't been active recently (e.g., someone crossing the 30-day dormant threshold).
+
+**6. Score Computer** (every 30 minutes)
+Recomputes player affinity vectors from historical session data — total sessions, total coin-in, total games. Used by the Interest Match rule to make relevant suggestions.
+
+**What to watch for:**
+- If **Profile Updater** shows "0 items" consistently, no players are active (or the session engine isn't running)
+- If **Action Dispatcher** shows "0 items" consistently, either no rules are matching or all actions are being delivered immediately
+- If any worker shows **failed** status, click Worker Logs tab to see the error"""},
+
+        {"id": "fw-rewards", "title": "How POC Rewards Work in FlywheelOS", "content": """When FlywheelOS decides a player should receive Play-Only Credits, the reward goes through a controlled lifecycle to prevent double-issuance and maintain a complete audit trail.
+
+**Reward Lifecycle:**
+1. **Pending** — FlywheelOS has decided to issue a reward but delivery hasn't been confirmed
+2. **Settled** — The reward has been delivered to the EGM and is available to the player (in v1, this happens automatically)
+3. **Reversed** — An admin reversed a previously settled reward (e.g., if fraud was detected)
+
+**Idempotency (no double-counting):**
+Each reward has a unique key based on: player ID + rule key + session ID + date. If the same combination occurs twice in one day (e.g., due to a retry), the second attempt is silently skipped. This prevents accidental double-issuance.
+
+**Tier Multiplier:**
+The POC amount you see on the Rules tab is the BASE amount. The actual amount the player receives is multiplied by their PIRS tier:
+- Bronze: 1.0x (no change)
+- Silver: 1.15x
+- Gold: 1.3x
+- Platinum: 1.5x
+- Diamond: 2.0x
+
+So a $10 base POC from Loss Recovery becomes $15 for a Platinum player and $20 for a Diamond player.
+
+**Where rewards show up:**
+1. **EGM screen** — "You have $15.00 Play Credits! Enjoy your game!" displayed on the machine
+2. **FlywheelOS Admin → Action Queue** — shows the action, score, and reward amount
+3. **PIRS Rewards → Bonus Feed** — POC awards with trigger type "flywheel_loss_recovery" etc.
+4. **Player's total POC** — Automatically added to their PIRS lifetime totals"""},
+
+        {"id": "fw-bestpractices", "title": "Best Practices for Operators", "content": """**Getting started (first week):**
+1. Enable all 11 rules — they're pre-tuned with sensible defaults
+2. Watch the Overview tab daily — are actions being generated? Are workers healthy?
+3. Check Action Queue — are the right players getting the right offers?
+4. Monitor your POC budget — FlywheelOS doesn't have a budget cap (yet), so keep an eye on total POC awarded vs. revenue impact
+
+**Weekly tuning:**
+1. Look at which rule families generate the most actions (Overview → Top Families). If one rule dominates, consider lowering its priority so other rules get a chance.
+2. Check for high rejection rates in Action Queue. If most actions are "rejected," your frequency caps might be too tight.
+3. Review dormant/at_risk player counts in Profiles. If they're growing, your Re-Entry rule might need a bigger POC incentive.
+
+**Understanding the lifecycle stages:**
+- **New** — Fewer than 3 sessions. These players are exploring. Hit them with Low Friction Earn Path.
+- **Active** — Regular players, seen within 14 days. The bread and butter. Standard rules apply.
+- **Power** — High-frequency players (5+ events/week). They don't need much encouragement — focus on Shareable Moment and Social Proof.
+- **At Risk** — Lapse risk is high or churn score is low. Re-Entry and Loss Recovery are your tools here.
+- **Dormant** — Not seen in 30+ days. Scheduled Re-Entry is the only rule that reaches them.
+- **Resurrected** — Was dormant, came back. Welcome them back warmly — don't immediately bombard with offers.
+
+**When to pause the engine:**
+- During maintenance or system upgrades
+- If you notice POC spending is out of control (pause, review rules, adjust, resume)
+- During regulatory audits (pause engagement, let the audit complete, then resume)
+
+**Red flags to watch for:**
+- Worker Logs showing consistent failures → check backend logs for errors
+- Zero actions for hours → rules might all be disabled, or no players are active
+- High fatigue scores across many players → you're over-messaging. Increase frequency cap hours.
+- Same player getting 5 actions every day hitting the cap → that player is highly engaged; consider creating a VIP-specific rule with higher cap
+
+**How FlywheelOS relates to other UGG features:**
+- **PIRS** — FlywheelOS reads PIRS churn scores, tiers, and lapse risk to make decisions. PIRS provides the player intelligence; FlywheelOS acts on it.
+- **PIN Sessions** — FlywheelOS watches PIN session events (login, logout, bill-in, meter updates) as its primary data source.
+- **Session Anomalies** — If a player has a HIGH-severity anomaly, FlywheelOS automatically suppresses engagement for that player (no offers sent to flagged players).
+- **Gamification** — FlywheelOS and the gamification system (achievements, journeys) complement each other. Gamification rewards in-session achievements; FlywheelOS handles between-session and cross-session engagement.
+- **Device Messages** — FlywheelOS delivers POC offers by writing to the same device_messages collection that powers the Message Composer. Offers appear on EGM screens."""},
     ]},
 ]
 
