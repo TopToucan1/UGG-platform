@@ -138,7 +138,7 @@ export default function RouteOpsPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold tracking-tight flex items-center gap-3" style={{ color: '#E8ECF1' }}>
           <MapPin size={24} style={{ color: '#00D4AA' }} /> Route Operations
-          <InfoTip label="Route Operations" description="Central console for running slot machines placed in bars and taverns. Tracks revenue (NOR), exceptions (machine problems), software integrity checks, EFT tax sweeps, and the four-tier regulator/distributor/retailer/manufacturer portal." />
+          <InfoTip label="Route Operations" description="Central console for running EGMs placed in bars and taverns. Tracks revenue (NOR), exceptions (machine problems), software integrity checks, EFT tax sweeps, and the four-tier regulator/distributor/retailer/manufacturer portal." />
         </h1>
         <div className="flex items-center gap-3">
           <select data-testid="route-dist-filter" value={distFilter} onChange={e => setDistFilter(e.target.value)} className="px-3 py-1.5 rounded text-xs outline-none" style={{ background: '#1A1E2A', border: '1px solid #272E3B', color: '#E8ECF1' }}>
@@ -164,7 +164,7 @@ export default function RouteOpsPage() {
       {activeTab === 'overview' && d && (
         <div className="space-y-4" data-testid="route-overview">
           <div className="grid grid-cols-8 gap-3">
-            <KPI label="Devices" value={d.devices?.total} color="#00D4AA" icon={Lightning} sub={`${d.devices?.online} online`} tip="Total slot machines under management across every retailer site." />
+            <KPI label="Devices" value={d.devices?.total} color="#00D4AA" icon={Lightning} sub={`${d.devices?.online} online`} tip="Total EGMs under management across every retailer site." />
             <KPI label="Active Exceptions" value={d.exceptions?.active} color="#FF3B30" icon={Warning} sub={`${d.exceptions?.critical} critical`} tip="Unresolved machine alerts right now. Critical means needs immediate operator action." />
             <KPI label="30d NOR" value={fmt(d.nor_30d?.total_nor)} color="#00D4AA" icon={CurrencyDollar} tip="Net Operating Revenue over the last 30 days. NOR = Coin In minus Coin Out (what the house kept before tax)." />
             <KPI label="30d Coin In" value={fmt(d.nor_30d?.total_coin_in)} color="#007AFF" icon={ArrowDown} tip="Total wagered by players across all machines in the last 30 days. Includes recycled winnings." />

@@ -255,7 +255,7 @@ export default function EmulatorLabPage() {
   const allScripts = [...(scripts.system_scripts || []), ...(scripts.custom_scripts || [])];
   const tabs = [
     { id: 'scripts', label: 'Script Runner', tip: 'Pre-canned test sequences (e.g. cash-in, play, cash-out) you can run against the virtual EGM to check the platform handles them correctly.' },
-    { id: 'egm', label: 'SmartEGM', tip: 'Drive a virtual slot machine directly using high-level player verbs (Insert Bill, Push Play, Cash Out, etc.) without having to hand-craft G2S messages.' },
+    { id: 'egm', label: 'SmartEGM', tip: 'Drive a virtual EGM directly using high-level player verbs (Insert Bill, Push Play, Cash Out, etc.) without having to hand-craft G2S messages.' },
     { id: 'live', label: 'Live G2S', tip: 'Point the lab at a real EGM SOAP endpoint (or leave blank for virtual) and send live G2S commands. G2S = Game-to-System, the XML/HTTPS protocol modern EGMs use.' },
     { id: 'templates', label: 'Templates', tip: 'Parse a device template XML (the vendor-supplied description of an EGM\'s capabilities, meters, denominations and game outcomes) so the emulator can mimic that exact model.' },
     { id: 'tar', label: 'TAR Report', tip: 'Transcript Analysis Report — a formal 7-section compliance report over a session, including Balanced Meters, ACK errors and coverage.' },
@@ -270,7 +270,7 @@ export default function EmulatorLabPage() {
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
             <Flask size={16} style={{ color: '#00B4D8' }} /> Emulator Lab
-            <InfoTip label="Emulator Lab" description="A safe sandbox for testing the platform against simulated EGMs before touching real hardware. Run test scripts, drive a virtual slot machine, connect to a real G2S endpoint, parse device templates, and inspect the resulting protocol traffic." />
+            <InfoTip label="Emulator Lab" description="A safe sandbox for testing the platform against simulated EGMs before touching real hardware. Run test scripts, drive a virtual EGM, connect to a real G2S endpoint, parse device templates, and inspect the resulting protocol traffic." />
           </h2>
         </div>
         {/* Tab selector */}
@@ -393,7 +393,7 @@ export default function EmulatorLabPage() {
         {/* ═══ SMART EGM ═══ */}
         {activeTab === 'egm' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4" data-testid="smart-egm-panel">
-            <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>SmartEGM — 12 Player Verbs<InfoTip label="SmartEGM Player Verbs" description="High-level actions a player can perform on a slot machine. Click any button to simulate it on the virtual EGM — the underlying G2S messages are generated automatically. Only verbs valid for the current state light up." /></h3>
+            <h3 className="font-heading text-lg font-semibold flex items-center" style={{ color: '#F0F4FF' }}>SmartEGM — 12 Player Verbs<InfoTip label="SmartEGM Player Verbs" description="High-level actions a player can perform on an EGM. Click any button to simulate it on the virtual EGM — the underlying G2S messages are generated automatically. Only verbs valid for the current state light up." /></h3>
             <div className="grid grid-cols-4 gap-2" data-testid="verb-buttons">
               {verbs.map(v => {
                 const Icon = VERB_ICONS[v.id] || GameController;

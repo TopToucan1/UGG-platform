@@ -115,7 +115,7 @@ export default function RegulatoryDashboardPage() {
 
       {/* KPI Strip */}
       <div className="grid grid-cols-8 gap-2" data-testid="reg-kpi-strip">
-        <KPI label="Devices" value={d.estate?.devices} color="#00D4AA" icon={Desktop} sub={`${d.estate?.online} online`} tip="Every slot machine under state oversight in the program." />
+        <KPI label="Devices" value={d.estate?.devices} color="#00D4AA" icon={Desktop} sub={`${d.estate?.online} online`} tip="Every EGM under state oversight in the program." />
         <KPI label="Distributors" value={d.estate?.distributors} color="#8B5CF6" icon={Buildings} tip="Licensed companies that own and service the machines." />
         <KPI label="Retailers" value={d.estate?.retailers} color="#007AFF" icon={MapPin} tip="Bars, taverns, and other retail sites hosting machines." />
         <KPI label="30d NOR" value={fmt(d.revenue?.grand_nor)} color="#00D4AA" icon={CurrencyDollar} tip="Net Operating Revenue across the whole state over 30 days (Coin In minus Coin Out)." />

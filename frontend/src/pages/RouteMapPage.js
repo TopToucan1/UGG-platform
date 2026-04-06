@@ -75,7 +75,7 @@ export default function RouteMapPage() {
       <div className="w-72 border-r flex flex-col flex-shrink-0 overflow-hidden" style={{ background: '#0C1322', borderColor: '#1A2540' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: '#1A2540' }}>
           <h2 className="font-heading text-sm font-semibold flex items-center gap-2" style={{ color: '#F0F4FF' }}>
-            <MapPin size={16} style={{ color: '#00B4D8' }} /> Route Map<InfoTip label="Route Map" description="Geographic view of every retailer site where the platform operates slot machines. Dots are colored by site health so dispatch can spot problems at a glance." />
+            <MapPin size={16} style={{ color: '#00B4D8' }} /> Route Map<InfoTip label="Route Map" description="Geographic view of every retailer site where the platform operates EGMs. Dots are colored by site health so dispatch can spot problems at a glance." />
           </h2>
           {summary && (
             <div className="text-[10px] font-mono mt-1" style={{ color: '#4A6080' }}>
@@ -174,7 +174,7 @@ export default function RouteMapPage() {
         {summary && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-6 px-6 py-2.5 rounded-lg" style={{ background: 'rgba(12,19,34,0.92)', border: '1px solid #1A2540', backdropFilter: 'blur(8px)' }}>
             <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Venues<InfoTip description="Total retailer sites (bars, taverns) on the route." /></div><div className="font-mono text-sm font-bold" style={{ color: '#F0F4FF' }}>{summary.total_venues}</div></div>
-            <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Devices<InfoTip description="Total slot machines across all venues." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{summary.total_devices}</div></div>
+            <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Devices<InfoTip description="Total EGMs across all venues." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{summary.total_devices}</div></div>
             <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Online<InfoTip description="Percent of machines currently reporting live to the central system." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00B4D8' }}>{summary.online_pct}%</div></div>
             <div className="text-center"><div className="text-[9px] uppercase tracking-widest flex items-center justify-center" style={{ color: '#4A6080' }}>Today NOR<InfoTip description="Net Operating Revenue recorded so far today. NOR = Coin In minus Coin Out." /></div><div className="font-mono text-sm font-bold" style={{ color: '#00D97E' }}>{fmt(summary.today_nor)}</div></div>
           </div>
