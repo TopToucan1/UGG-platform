@@ -162,11 +162,14 @@ export default function RouteMapPage() {
             { id: 'satellite', label: 'Satellite', icon: Mountains, tip: 'Aerial imagery — useful when you need to see the actual building or parking lot.' },
             { id: 'streets', label: 'Streets', icon: MapPin, tip: 'Classic street map with labels, best for navigating by road.' },
           ].map((s, i) => (
-            <button key={s.id} data-testid={`map-style-${s.id}`} onClick={() => switchStyle(s.id)}
-              className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors"
-              style={{ background: mapStyle === s.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: mapStyle === s.id ? '#00B4D8' : '#4A6080', borderRight: i < 2 ? '1px solid #1A2540' : 'none' }}>
-              <s.icon size={14} /> {s.label}{s.tip && <InfoTip description={s.tip} />}
-            </button>
+            <div key={s.id} className="flex items-center">
+              <button data-testid={`map-style-${s.id}`} onClick={() => switchStyle(s.id)}
+                className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors"
+                style={{ background: mapStyle === s.id ? 'rgba(0,180,216,0.15)' : 'transparent', color: mapStyle === s.id ? '#00B4D8' : '#4A6080', borderRight: i < 2 ? '1px solid #1A2540' : 'none' }}>
+                <s.icon size={14} /> {s.label}
+              </button>
+              {s.tip && <InfoTip description={s.tip} />}
+            </div>
           ))}
         </div>
 
@@ -241,10 +244,13 @@ export default function RouteMapPage() {
                 </div>
               </div>
             )}
-            <button data-testid="view-venue-devices" onClick={() => navigate(`/devices?search=${selected.name}`)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
-              View Venue Devices <CaretRight size={14} /><InfoTip description="Jump to the Devices page pre-filtered to the machines at this venue." />
-            </button>
+            <div className="flex items-center gap-1">
+              <button data-testid="view-venue-devices" onClick={() => navigate(`/devices?search=${selected.name}`)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded text-xs font-medium" style={{ background: '#00B4D8', color: '#070B14' }}>
+                View Venue Devices <CaretRight size={14} />
+              </button>
+              <InfoTip description="Jump to the Devices page pre-filtered to the machines at this venue." />
+            </div>
           </div>
         </div>
       )}

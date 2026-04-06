@@ -466,7 +466,7 @@ export default function PIRSPage() {
                   <div><label className="block text-[9px] uppercase tracking-wider mb-1" style={{ color: '#4A6080' }}>Min POC Amount ($)</label><input type="number" value={config.min_poc_amount || 5} onChange={e => setConfig(p => ({ ...p, min_poc_amount: +e.target.value }))} className="w-full px-3 py-2 rounded text-sm outline-none font-mono" style={{ background: '#111827', border: '1px solid #1A2540', color: '#F0F4FF' }} /></div>
                 </div>
               </div>
-              <button onClick={() => updateConfig(config)} className="w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center" style={{ background: '#FFD700', color: '#070B14' }}>Save All Configuration Changes<InfoTip description="Persist every setting change above. Nothing takes effect until this is clicked." /></button>
+              <div className="flex items-center gap-1"><button onClick={() => updateConfig(config)} className="w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center" style={{ background: '#FFD700', color: '#070B14' }}>Save All Configuration Changes</button><InfoTip description="Persist every setting change above. Nothing takes effect until this is clicked." /></div>
             </div>
           )}
         </div>
