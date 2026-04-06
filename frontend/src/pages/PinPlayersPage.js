@@ -15,13 +15,15 @@ export default function PinPlayersPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setErr('');
     try {
-      const [pl, sm] = await Promise.all([
+      const [pl, sm] = await Promise.allSettled([
         api.get('/players-pin', { params: { q: query || undefined, limit: 200 } }),
         api.get('/players-pin/summary'),
       ]);
-      setPlayers(pl.data.players || []);
-      setSummary(sm.data);
+      if (pl.status === 'fulfilled') setPlayers(pl.value.data.players || []);
+      else setErr('PIN Players API not available — backend may need a rebuild.');
+      if (sm.status === 'fulfilled') setSummary(sm.value.data);
     } catch (e) {
       setErr(e.response?.data?.detail || 'Failed to load players');
     } finally {

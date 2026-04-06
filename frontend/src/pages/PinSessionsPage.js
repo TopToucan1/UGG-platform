@@ -14,19 +14,21 @@ export default function PinSessionsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sm, act, ch, ph] = await Promise.all([
+      const [sm, act, ch, ph] = await Promise.allSettled([
         api.get('/players-pin/summary'),
         api.get('/players-pin/sessions/active'),
         api.get('/players-pin/sessions/credit', { params: { limit: 100 } }),
         api.get('/players-pin/sessions/pin', { params: { limit: 100 } }),
       ]);
-      setSummary(sm.data);
+      if (sm.status === 'fulfilled') setSummary(sm.value.data);
       if (tab === 'active') {
-        setCredit(act.data.credit_sessions || []);
-        setPin(act.data.pin_sessions || []);
+        if (act.status === 'fulfilled') {
+          setCredit(act.value.data.credit_sessions || []);
+          setPin(act.value.data.pin_sessions || []);
+        }
       } else {
-        setCredit(ch.data.sessions || []);
-        setPin(ph.data.sessions || []);
+        if (ch.status === 'fulfilled') setCredit(ch.value.data.sessions || []);
+        if (ph.status === 'fulfilled') setPin(ph.value.data.sessions || []);
       }
     } finally { setLoading(false); }
   }, [tab]);

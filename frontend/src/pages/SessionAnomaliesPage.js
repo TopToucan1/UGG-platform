@@ -42,6 +42,8 @@ export default function SessionAnomaliesPage() {
         },
       });
       setAnomalies(res.data.anomalies || []);
+    } catch {
+      // API not available yet — show empty state
     } finally { setLoading(false); }
   }, [filterStatus, filterSeverity]);
 
