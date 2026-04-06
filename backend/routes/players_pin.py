@@ -46,7 +46,7 @@ class PinChangeInput(BaseModel):
 
 
 # ─────────────────────────────────────────────
-# Player CRUD
+# Player CRUD — collection endpoints (no path params)
 # ─────────────────────────────────────────────
 @router.post("")
 async def create_player(inp: PlayerCreateInput, request: Request):
@@ -103,60 +103,30 @@ async def list_players(
     return {"players": players, "total": total}
 
 
-@router.get("/{player_id}")
-async def get_player(player_id: str, request: Request):
+# ─────────────────────────────────────────────
+# Summary (static path — must be before /{player_id})
+# ─────────────────────────────────────────────
+@router.get("/summary")
+async def summary(request: Request):
     await get_current_user(request)
-    player = await db.players_pin.find_one({"id": player_id}, {"_id": 0, "pin_hash": 0})
-    if not player:
-        raise HTTPException(status_code=404, detail="Player not found")
-    # Attach active pin_session if any
-    active_pin = await db.pin_sessions.find_one(
-        {"player_id": player_id, "is_active": True}, {"_id": 0}
-    )
-    player["active_pin_session"] = active_pin
-    return player
-
-
-@router.patch("/{player_id}")
-async def update_player(player_id: str, inp: PlayerUpdateInput, request: Request):
-    await require_role(request, ["admin", "operator"])
-    update = {k: v for k, v in inp.model_dump().items() if v is not None}
-    if not update:
-        raise HTTPException(status_code=400, detail="No fields to update")
-    update["updated_at"] = _now_iso()
-    result = await db.players_pin.update_one({"id": player_id}, {"$set": update})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Player not found")
-    return {"updated": True}
-
-
-@router.post("/{player_id}/pin")
-async def change_pin(player_id: str, inp: PinChangeInput, request: Request):
-    await require_role(request, ["admin", "operator"])
-    if not inp.new_pin.isdigit():
-        raise HTTPException(status_code=400, detail="PIN must be numeric")
-    result = await db.players_pin.update_one(
-        {"id": player_id},
-        {"$set": {"pin_hash": hash_pin(inp.new_pin), "updated_at": _now_iso()}},
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Player not found")
-    return {"updated": True}
-
-
-@router.delete("/{player_id}")
-async def deactivate_player(player_id: str, request: Request):
-    await require_role(request, ["admin"])
-    result = await db.players_pin.update_one(
-        {"id": player_id}, {"$set": {"status": "inactive", "updated_at": _now_iso()}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Player not found")
-    return {"deactivated": True}
+    total_players = await db.players_pin.count_documents({"status": "active"})
+    active_credit = await db.credit_sessions.count_documents({"is_active": True})
+    active_pin = await db.pin_sessions.count_documents({"is_active": True})
+    total_credit = await db.credit_sessions.count_documents({})
+    total_pin = await db.pin_sessions.count_documents({})
+    open_anomalies = await db.session_anomalies.count_documents({"status": "open"})
+    return {
+        "active_players": total_players,
+        "active_credit_sessions": active_credit,
+        "active_pin_sessions": active_pin,
+        "total_credit_sessions": total_credit,
+        "total_pin_sessions": total_pin,
+        "open_anomalies": open_anomalies,
+    }
 
 
 # ─────────────────────────────────────────────
-# Session queries
+# Session queries (static paths — must be before /{player_id})
 # ─────────────────────────────────────────────
 @router.get("/sessions/credit")
 async def list_credit_sessions(
@@ -187,7 +157,6 @@ async def get_credit_session(session_id: str, request: Request):
     session = await db.credit_sessions.find_one({"id": session_id}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Credit session not found")
-    # Attach pin_sessions
     pin_sessions = await db.pin_sessions.find(
         {"credit_session_id": session_id}, {"_id": 0}
     ).sort("started_at", 1).to_list(100)
@@ -232,27 +201,8 @@ async def active_sessions(request: Request):
     }
 
 
-@router.get("/summary")
-async def summary(request: Request):
-    await get_current_user(request)
-    total_players = await db.players_pin.count_documents({"status": "active"})
-    active_credit = await db.credit_sessions.count_documents({"is_active": True})
-    active_pin = await db.pin_sessions.count_documents({"is_active": True})
-    total_credit = await db.credit_sessions.count_documents({})
-    total_pin = await db.pin_sessions.count_documents({})
-    open_anomalies = await db.session_anomalies.count_documents({"status": "open"})
-    return {
-        "active_players": total_players,
-        "active_credit_sessions": active_credit,
-        "active_pin_sessions": active_pin,
-        "total_credit_sessions": total_credit,
-        "total_pin_sessions": total_pin,
-        "open_anomalies": open_anomalies,
-    }
-
-
 # ─────────────────────────────────────────────
-# Anomalies
+# Anomalies (static paths — must be before /{player_id})
 # ─────────────────────────────────────────────
 @router.get("/anomalies")
 async def list_anomalies(
@@ -299,3 +249,57 @@ async def dismiss_anomaly(anomaly_id: str, request: Request):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Anomaly not found")
     return {"dismissed": True}
+
+
+# ─────────────────────────────────────────────
+# Player by ID (dynamic path — MUST be last to avoid catching static routes)
+# ─────────────────────────────────────────────
+@router.get("/{player_id}")
+async def get_player(player_id: str, request: Request):
+    await get_current_user(request)
+    player = await db.players_pin.find_one({"id": player_id}, {"_id": 0, "pin_hash": 0})
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    active_pin = await db.pin_sessions.find_one(
+        {"player_id": player_id, "is_active": True}, {"_id": 0}
+    )
+    player["active_pin_session"] = active_pin
+    return player
+
+
+@router.patch("/{player_id}")
+async def update_player(player_id: str, inp: PlayerUpdateInput, request: Request):
+    await require_role(request, ["admin", "operator"])
+    update = {k: v for k, v in inp.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    update["updated_at"] = _now_iso()
+    result = await db.players_pin.update_one({"id": player_id}, {"$set": update})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return {"updated": True}
+
+
+@router.post("/{player_id}/pin")
+async def change_pin(player_id: str, inp: PinChangeInput, request: Request):
+    await require_role(request, ["admin", "operator"])
+    if not inp.new_pin.isdigit():
+        raise HTTPException(status_code=400, detail="PIN must be numeric")
+    result = await db.players_pin.update_one(
+        {"id": player_id},
+        {"$set": {"pin_hash": hash_pin(inp.new_pin), "updated_at": _now_iso()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return {"updated": True}
+
+
+@router.delete("/{player_id}")
+async def deactivate_player(player_id: str, request: Request):
+    await require_role(request, ["admin"])
+    result = await db.players_pin.update_one(
+        {"id": player_id}, {"$set": {"status": "inactive", "updated_at": _now_iso()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return {"deactivated": True}
