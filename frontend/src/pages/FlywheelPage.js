@@ -27,11 +27,12 @@ export default function FlywheelPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      if (tab === 'overview') {
+      if (tab === 'overview' || tab === 'config') {
         const [d, l] = await Promise.allSettled([api.get('/flywheel/dashboard'), api.get('/flywheel/logs', { params: { limit: 20 } })]);
         if (d.status === 'fulfilled') setDashboard(d.value.data);
         if (l.status === 'fulfilled') setLogs(l.value.data.logs || []);
-      } else if (tab === 'rules') {
+      }
+      if (tab === 'rules') {
         const r = await api.get('/flywheel/rules');
         setRules(r.data.rules || []);
       } else if (tab === 'actions') {
